@@ -1,0 +1,74 @@
+name: Test Rust
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Test Rust ${{ matrix.rust_version }} / ${{ matrix.os.name }}
+    runs-on: ${{ matrix.os.name }}
+    continue-on-error: ${{ matrix.rust_version == 'nightly' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_version: ["stable", "beta", "nightly"]
+        os: [
+          {name: ubuntu-latest, img_tests: true },
+          {name: windows-latest, img_tests: true },
+          {name: macOS-latest, img_tests: false }
+        ]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust_version }}
+          override: true
+          components: rustfmt, clippy
+
+      - name: Install Linux dependencies
+        if: matrix.os.name == 'ubuntu-latest'
+        run: |
+          sudo add-apt-repository ppa:kisak/kisak-mesa -y
+          sudo apt-get update
+          sudo apt-get dist-upgrade
+          sudo apt install -y libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev mesa-vulkan-drivers
+
+      - name: Check formatting
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Check clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all --tests -- -D warnings
+
+      - name: Run tests with image tests
+        if: ${{ matrix.os.img_tests }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features imgtests
+
+      - name: Run tests without image tests
+        if: ${{ !matrix.os.img_tests }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Upload images
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: swf_images
+          path: tests/**/*.png.updated
+

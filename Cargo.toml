@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "h263",
+]
+resolver = "2"
+
+# Don't optimize build scripts and macros.
+[profile.release.build-override]
+opt-level = 0
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+[profile.dev.package.h263-rs]
+opt-level = 3
