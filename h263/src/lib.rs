@@ -3,4 +3,7 @@
 #[macro_use]
 extern crate bitflags;
 
+mod error;
+mod read;
+mod traits;
 mod types;
