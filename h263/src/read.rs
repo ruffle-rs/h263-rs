@@ -137,6 +137,46 @@ where
 
         Ok(r)
     }
+
+    /// Yield a checkpoint value that can be used to abort a complex read
+    /// operation.
+    ///
+    /// In the event that a read operation fails, the prior state of the
+    /// internal buffer may be restored using the returned checkpoint.
+    ///
+    /// This is not an arbitrary seek mechanism: checkpoints are only valid
+    /// for as long as the internal buffer retains the same amount of data, or
+    /// more.
+    fn checkpoint(&self) -> usize {
+        self.bits_read
+    }
+
+    /// Restore a previously-created checkpoint.
+    ///
+    /// Upon restoring a checkpoint, all bits read from this reader will be
+    ///
+    /// Checkpoints handed to this function must be valid. Specifically, the
+    /// internal buffer must not have been cleared (e.g. via `commit`) between
+    /// the creation and use of this checkpoint.
+    fn rollback(&mut self, checkpoint: usize) -> Result<()> {
+        if checkpoint >= (self.buffer.len() * 8) {
+            return Err(Error::InternalDecoderError);
+        }
+
+        self.bits_read = checkpoint;
+
+        Ok(())
+    }
+
+    /// Invalidate any previous checkpoints and discard the internal buffer.
+    ///
+    /// This should only be called once all of the data necessary to represent
+    /// a user-facing object has been read. All existing checkpoints will be
+    /// invalidated.
+    fn commit(&mut self) {
+        self.buffer.drain(0..self.bits_read / 8);
+        self.bits_read %= 8;
+    }
 }
 
 #[cfg(test)]
