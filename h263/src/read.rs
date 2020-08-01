@@ -7,6 +7,9 @@ use std::collections::VecDeque;
 use std::io::Read;
 
 /// A reader that allows decoding an H.263 compliant bitstream.
+///
+/// This reader implements an internal buffer that can be read from as a series
+/// of bits into a number of possible types.
 pub struct H263Reader<R>
 where
     R: Read,
@@ -14,18 +17,14 @@ where
     /// The data source to read bits from.
     source: R,
 
-    /// Internal buffer storing already-read bytes from the bitstream data.
+    /// Internal buffer of already-read bitstream data.
     buffer: VecDeque<u8>,
 
-    /// How many bits of the head byte in the buffer have already been read.
+    /// How many bits of the buffer have already been read.
     ///
-    /// If the value is nonzero, then all data in the buffer must be shifted
-    /// left by this many bits. Reading a partial number
-    ///
-    /// If this value is eight or more, then the buffer should have bytes
-    /// removed from it, and eight subtracted from this value, until it is less
-    /// than eight.
-    bits_read: u8,
+    /// If this value modulo eight is nonzero, then reads out of the internal
+    /// buffer must read
+    bits_read: usize,
 }
 
 impl<R> H263Reader<R>
@@ -65,21 +64,26 @@ where
         (bits_short / 8) + if bits_short % 8 != 0 { 1 } else { 0 }
     }
 
+    /// Ensure that at least a certain number of additional bits can be read
+    /// from the internal buffer.
     fn ensure_bits(&mut self, bits_needed: u32) -> Result<()> {
         let bytes = self.needed_bytes_for_bits(bits_needed);
         self.buffer_bytes(bytes)
     }
 
-    /// Read an arbitrary number of bits out into a type.
+    /// Copy an arbitrary number of bits from the stream out into a type.
     ///
     /// The bits will be returned such that the read-out bits start from the
     /// least significant bit of the returned type. This means that, say,
     /// reading two bits from the bitstream will result in a value that has
     /// been zero-extended.
     ///
+    /// This function does not remove bits from the buffer. Repeated calls to
+    /// peek_bits return the same bits.
+    ///
     /// The `bits_needed` must not exceed the maximum width of the type. Any
     /// attempt to do so will result in an error.
-    fn read_bits<T: BitReadable>(&mut self, mut bits_needed: u32) -> Result<T> {
+    fn peek_bits<T: BitReadable>(&mut self, mut bits_needed: u32) -> Result<T> {
         if (T::zero().checked_shl(bits_needed)).is_none() {
             return Err(Error::InternalDecoderError);
         }
@@ -87,30 +91,51 @@ where
         self.ensure_bits(bits_needed)?;
 
         let mut accum = T::zero();
-        while bits_needed > 0 {
-            let byte = self
-                .buffer
-                .front()
-                .expect("buffer bytes should have been ensured")
-                << self.bits_read;
-            let bits_in_byte = (8 as u32).saturating_sub(self.bits_read as u32);
+        let bytes_read = self.bits_read / 8;
+        let mut bits_read = self.bits_read % 8;
+        for byte in self.buffer.iter().skip(bytes_read) {
+            let byte = byte << bits_read;
+            let bits_in_byte = (8 as u32).saturating_sub(bits_read as u32);
 
             let bits_to_shift_in = min(bits_in_byte, bits_needed);
 
             accum = (accum << bits_to_shift_in) | (byte >> (8 - bits_to_shift_in)).into();
 
-            self.bits_read += bits_to_shift_in as u8;
-            if self.bits_read >= 8 {
-                self.bits_read -= 8;
-                self.buffer
-                    .pop_front()
-                    .expect("one buffer byte should have been popped");
-            }
-
+            bits_read = 0;
             bits_needed = bits_needed.saturating_sub(bits_to_shift_in);
         }
 
+        assert_eq!(
+            0, bits_needed,
+            "return type accumulator should have been filled"
+        );
+
         Ok(accum)
+    }
+
+    /// Skip forward a certain number of bits in the stream buffer.
+    ///
+    /// If more bits are requested to be skipped than exist within the buffer,
+    /// then they will be read in. If this process generates an IO error of any
+    /// kind, it will be returned, and no skipping will take place.
+    fn skip_bits(&mut self, bits_to_skip: u32) -> Result<()> {
+        self.ensure_bits(bits_to_skip)?;
+
+        self.bits_read += bits_to_skip as usize;
+
+        Ok(())
+    }
+
+    /// Move an arbitrary number of bits from the stream out into a type.
+    ///
+    /// This function operates similar to `peek_bits`, but the internal buffer
+    /// of this reader will be advanced by the same number of bits that have
+    /// been returned.
+    fn read_bits<T: BitReadable>(&mut self, bits_needed: u32) -> Result<T> {
+        let r = self.peek_bits(bits_needed)?;
+        self.skip_bits(bits_needed)?;
+
+        Ok(r)
     }
 }
 
@@ -127,5 +152,16 @@ mod tests {
         assert_eq!(0x3E, reader.read_bits(6).unwrap());
         assert_eq!(0x721C1F, reader.read_bits(23).unwrap());
         reader.read_bits::<u8>(1).unwrap_err();
+    }
+
+    #[test]
+    fn peek_bits() {
+        let data = [0xFF, 0x72, 0x1C, 0x1F];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        assert_eq!(0x07, reader.peek_bits(3).unwrap());
+        assert_eq!(0x3F, reader.peek_bits(6).unwrap());
+        assert_eq!(0x7FB90E, reader.peek_bits(23).unwrap());
+        reader.peek_bits::<u64>(64).unwrap_err();
     }
 }
