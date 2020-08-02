@@ -40,7 +40,11 @@ pub struct Picture {
     /// Only present if Temporal, SNR, and Spatial Scalability mode is enabled.
     layer: Option<ScalabilityLayer>,
 
-    /// ITU-T Recommendation H.263 (01/2005) 5.1.13-5.1.14 `TRP`,`TRPI`
+    /// What backchannel signals is the encoder requesting from it's decoding
+    /// partner.
+    reference_picture_selection_mode: Option<ReferencePictureSelectionMode>,
+
+    /// ITU-T Recommendation H.263 (01/2005) 5.1.14-5.1.15 `TRP`,`TRPI`
     ///
     /// Indicates the temporal reference of the picture to be used to
     /// reconstruct this picture. Must not be specified if this is an `IFrame`
@@ -302,8 +306,24 @@ bitflags! {
 /// Only present if Temporal, SNR, and Spatial Scalability is enabled.
 pub struct ScalabilityLayer {
     /// The 4-bit enhancement layer index.
-    enhancement: u8,
+    pub enhancement: u8,
 
     /// The 4-bit reference layer index.
-    reference: u8,
+    ///
+    /// If `None`, then this picture does not specify the reference layer for
+    /// this layer. You should refer to previous pictures that do declare a
+    /// reference layer in order to obtain that value in this case.
+    pub reference: Option<u8>,
+}
+
+bitflags! {
+    /// ITU-T Recommendation H.263 (01/2005) 5.1.13 `RPSMF`
+    ///
+    /// Indicates what backchannel messages the encoder would like out of it's
+    /// decoding partner.
+    pub struct ReferencePictureSelectionMode : u8 {
+        const Reserved = 0b1;
+        const RequestNegativeAcknowledgement = 0b10;
+        const RequestAcknowledgement = 0b100;
+    }
 }
