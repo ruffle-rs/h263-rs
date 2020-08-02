@@ -58,7 +58,7 @@ where
     /// Given a certain number of needed bits, return how many bytes would need
     /// to be buffered to read it.
     fn needed_bytes_for_bits(&mut self, bits_needed: u32) -> usize {
-        let bits_available = (self.buffer.len() * 8).saturating_sub(self.bits_read.into());
+        let bits_available = (self.buffer.len() * 8).saturating_sub(self.bits_read);
         let bits_short = (bits_needed as usize).saturating_sub(bits_available);
 
         (bits_short / 8) + if bits_short % 8 != 0 { 1 } else { 0 }
@@ -83,7 +83,7 @@ where
     ///
     /// The `bits_needed` must not exceed the maximum width of the type. Any
     /// attempt to do so will result in an error.
-    fn peek_bits<T: BitReadable>(&mut self, mut bits_needed: u32) -> Result<T> {
+    pub fn peek_bits<T: BitReadable>(&mut self, mut bits_needed: u32) -> Result<T> {
         if (T::zero().checked_shl(bits_needed)).is_none() {
             return Err(Error::InternalDecoderError);
         }
@@ -126,16 +126,32 @@ where
         Ok(())
     }
 
+    /// Skip bits until the bitstream is aligned.
+    pub fn skip_to_alignment(&mut self) -> Result<()> {
+        let misalignment = self.bits_read % 8;
+
+        if misalignment > 0 {
+            self.skip_bits(8 - misalignment as u32)
+        } else {
+            Ok(())
+        }
+    }
+
     /// Move an arbitrary number of bits from the stream out into a type.
     ///
     /// This function operates similar to `peek_bits`, but the internal buffer
     /// of this reader will be advanced by the same number of bits that have
     /// been returned.
-    fn read_bits<T: BitReadable>(&mut self, bits_needed: u32) -> Result<T> {
+    pub fn read_bits<T: BitReadable>(&mut self, bits_needed: u32) -> Result<T> {
         let r = self.peek_bits(bits_needed)?;
         self.skip_bits(bits_needed)?;
 
         Ok(r)
+    }
+
+    /// Read a `u8` from the bitstream.
+    pub fn read_u8(&mut self) -> Result<u8> {
+        self.read_bits(8)
     }
 
     /// Yield a checkpoint value that can be used to abort a complex read
@@ -177,11 +193,63 @@ where
         self.buffer.drain(0..self.bits_read / 8);
         self.bits_read %= 8;
     }
+
+    /// Run some struct-parsing code in such a way that it will not advance the
+    /// bitstream position unless it successfully parses a value.
+    ///
+    /// Closures passed to this function must yield a `Result`. The buffer
+    /// position will not be modified if the function yields an `Err`.
+    ///
+    /// TODO: This function does not discard successfully parsed buffer data
+    /// via `commit` due to the lack of safety tracking on checkpoints. This
+    /// function should be reentrant.
+    pub fn with_transaction<F, T>(&mut self, f: F) -> Result<T>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        let checkpoint = self.checkpoint();
+
+        let result = f(self);
+
+        if result.is_err() {
+            self.rollback(checkpoint)?;
+        }
+
+        result
+    }
+
+    /// Run some struct-parsing code in such a way that it will not advance the
+    /// bitstream position unless it successfully parses a value.
+    ///
+    /// Closures passed to this function must yield an `Option`, wrapped in a
+    /// `Result`. The buffer position will not be modified if the function
+    /// yields `Err` or `None`. Use `None` to signal that the desired data does
+    /// not exist in the bitstream (e.g. for data that could be one of multiple
+    /// types)
+    ///
+    /// TODO: This function does not discard successfully parsed buffer data
+    /// via `commit` due to the lack of safety tracking on checkpoints. This
+    /// function should be reentrant.
+    pub fn with_transaction_option<F, T>(&mut self, f: F) -> Result<Option<T>>
+    where
+        F: FnOnce(&mut Self) -> Result<Option<T>>,
+    {
+        let checkpoint = self.checkpoint();
+
+        let result = f(self);
+
+        match &result {
+            Ok(None) | Err(_) => self.rollback(checkpoint)?,
+            _ => {}
+        };
+
+        result
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::read::H263Reader;
+    use crate::decoder::reader::H263Reader;
 
     #[test]
     fn read_unaligned_bits() {

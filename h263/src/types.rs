@@ -138,9 +138,10 @@ bitflags! {
     /// required to be supported in all decoders. The meaning of each picture
     /// option should be referenced from ITU-T Recommendation H.263 (01/2005).
     ///
-    /// Certain combinations of `PictureOption`s are mutually exclusive and using
-    /// them together will result in errors in compliant decoders. Some
-    /// `PictureTypeCode`s will also prohibit the use of certain `PictureOption`s.
+    /// Certain combinations of `PictureOption`s are mutually exclusive and
+    /// using them together will result in errors in compliant decoders. Some
+    /// `PictureTypeCode`s will also prohibit the use of certain
+    /// `PictureOption`s.
     pub struct PictureOption : u16 {
         const UseSplitScreen = 0b1;
         const UseDocumentCamera = 0b10;
@@ -152,11 +153,12 @@ bitflags! {
         const DeblockingFilter = 0b10000000;
         const SliceStructured = 0b100000000;
         const ReferencePictureSelection = 0b1000000000;
+        const IndependentSegmentDecoding = 0b10000000000;
         const AlternativeInterVLC = 0b100000000000;
         const ModifiedQuantization = 0b1000000000000;
         const ReferencePictureResampling = 0b10000000000000;
         const ReducedResolutionUpdate = 0b100000000000000;
-        const HasRoundingType = 0b1000000000000000;
+        const RoundingTypeOne = 0b1000000000000000;
     }
 }
 
@@ -202,13 +204,13 @@ pub enum PictureTypeCode {
 /// This defines a "custom" picture format, outside of the standard CIF options.
 pub struct CustomPictureFormat {
     /// The aspect ratio of a single pixel.
-    pixel_aspect_ratio: PixelAspectRatio,
+    pub pixel_aspect_ratio: PixelAspectRatio,
 
     /// The number of pixels per line, shifted right by 4.
-    picture_width_indication: u8,
+    pub picture_width_indication: u8,
 
     /// The number of lines per image, shifted right by 4.
-    picture_height_indication: u8,
+    pub picture_height_indication: u8,
 }
 
 /// The aspect ratio of dots on each line.
@@ -266,11 +268,11 @@ pub struct CustomPictureClock {
     /// Whether or not the divisor is multiplied by 1000 or 1001.
     ///
     /// `true` indicates 1001, whilst `false` indicates 1000.
-    times_1001: bool,
+    pub times_1001: bool,
 
     /// The divisor, itself stored divided by a constant factor (see
     /// `times_1001`.)
-    divisor: u8,
+    pub divisor: u8,
 }
 
 /// ITU-T Recommendation H.263 (01/2005) 5.1.9 `UUI`
