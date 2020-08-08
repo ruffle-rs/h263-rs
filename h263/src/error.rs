@@ -13,6 +13,9 @@ pub enum Error {
 
     #[error("an I/O error occured: {0}")]
     UnhandledIoError(IoError),
+
+    #[error("a feature in the H.263 bitstream being decoded is not yet supported")]
+    UnimplementedDecoding,
 }
 
 impl From<IoError> for Error {

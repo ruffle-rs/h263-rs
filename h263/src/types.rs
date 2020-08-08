@@ -17,13 +17,8 @@ pub struct Picture {
     /// rate.
     format: SourceFormat,
 
-    /// Options which have been explicitly enabled by this particular
-    /// `Picture`.
-    options_enabled: PictureOption,
-
-    /// Options which have been explicitly disabled by this particular
-    /// `Picture`.
-    options_disabled: PictureOption,
+    /// Options which are enabled (or were implicitly present) on this picture.
+    options: PictureOption,
 
     /// The intra-prediction mode in use, if any.
     update_type: PictureTypeCode,
@@ -64,9 +59,7 @@ pub struct Picture {
     /// This field stores any backchannel message requests sent by the encoder.
     /// This field may only be present if `ReferencePictureSelection` has been
     /// enabled.
-    ///
-    /// TODO: Actually fill out the accompanying struct.
-    backchannel_message: Option<()>,
+    backchannel_message: Option<BackchannelMessage>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.18 `RPRP`
     ///
@@ -331,4 +324,61 @@ bitflags! {
         const RequestNegativeAcknowledgement = 0b10;
         const RequestAcknowledgement = 0b100;
     }
+}
+
+/// ITU-T Recommendation H.263 (01/2005) N.4.2 `BCM`
+///
+/// Indicates backchannel information that a decoder of a (presumably live)
+/// video stream is sending in response to an opposing video stream. It may be
+/// presented to the encoder with a separate logical channel, or it may be
+/// muxed into a video stream that the encoder is also expected to decode.
+pub struct BackchannelMessage {
+    /// What message type is being back-channeled.
+    message_type: BackchannelMessageType,
+
+    /// Whether or not the backchanneler has reliable reference numbers to the
+    /// opposing video stream. This being set to `Unreliable` indicates that
+    /// the references in this message may not be correct.
+    reliable: BackchannelReliability,
+
+    /// The temporal reference of the picture being backchanneled.
+    temporal_reference: u16,
+
+    /// The enhancement layer being backchanneled, or `None` if no layer was
+    /// specified.
+    enhancement_layer: Option<u8>,
+
+    /// The sub-bitstream number being backchanneled.
+    sub_bitstream: Option<u8>,
+
+    /// The GOB number or macroblock address being backchanneled.
+    gob_macroblock_address: Option<u16>,
+
+    /// The temporal reference being requested for retransmission (if NACK).
+    requested_temporal_reference: Option<u16>,
+}
+
+/// ITU-T Recommendation H.263 (01/2005) N.4.2.1 `BT`
+///
+/// Indicates the backchanneler's decoding status of the opposing video stream.
+pub enum BackchannelMessageType {
+    /// Positive acknowledgement of correct decoding of the opposing video
+    /// stream.
+    Acknowledge,
+
+    /// Negative acknowledgement of erroneous or failed decoding of the
+    /// opposing video stream.
+    NegativeAcknowledge,
+
+    /// Reserved message type.
+    Reserved(u8),
+}
+
+/// ITU-T Recommendation H.263 (01/2005) N.4.2.2 `URF`
+///
+/// Whether or not the backchanneling decoder has reliable values for temporal
+/// references, group-of-block numbers, or macroblock addresses.
+pub enum BackchannelReliability {
+    Reliable,
+    Unreliable,
 }
