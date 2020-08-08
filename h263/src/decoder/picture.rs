@@ -109,10 +109,29 @@ pub type PlusPType = (
     PlusPTypeFollower,
 );
 
+/// The set of picture options defined by an `OPPTYPE` record.
+///
+/// If a picture does not contain an `OPPTYPE`, then all of these options will
+/// be carried forward from the previous picture's options.
+const OPPTYPE_OPTIONS: PictureOption = PictureOption::UnrestrictedMotionVectors
+    | PictureOption::SyntaxBasedArithmeticCoding
+    | PictureOption::AdvancedPrediction
+    | PictureOption::AdvancedIntraCoding
+    | PictureOption::DeblockingFilter
+    | PictureOption::SliceStructured
+    | PictureOption::ReferencePictureSelection
+    | PictureOption::IndependentSegmentDecoding
+    | PictureOption::AlternativeInterVLC
+    | PictureOption::ModifiedQuantization;
+
 /// Attempts to read a `PLUSPTYPE` record from the bitstream.
+///
+/// The set of previous picture options are used to carry forward previously-
+/// enabled options in the case where the `PLUSPTYPE` does not change them.
 fn decode_plusptype<R>(
     reader: &mut H263Reader<R>,
     decoder_options: DecoderOptions,
+    previous_picture_options: PictureOption,
 ) -> Result<PlusPType>
 where
     R: Read,
@@ -202,6 +221,8 @@ where
             if decoder_options.contains(DecoderOptions::UseScalabilityMode) {
                 followers |= PlusPTypeFollower::HasReferenceLayerNumber;
             }
+        } else {
+            options |= previous_picture_options & OPPTYPE_OPTIONS;
         }
 
         let mpptype: u16 = reader.read_bits(9)?;
@@ -406,14 +427,41 @@ where
     })
 }
 
+/// Attempts to read `TRPI` and `TRP` from the bitstream.
+fn decode_trpi<R>(reader: &mut H263Reader<R>) -> Result<Option<u16>>
+where
+    R: Read,
+{
+    reader.with_transaction(|reader| {
+        let trpi: u8 = reader.read_bits(1)?;
+
+        if trpi == 1 {
+            let trp: u16 = reader.read_bits(10)?;
+
+            Ok(Some(trp))
+        } else {
+            Ok(None)
+        }
+    })
+}
+
 /// Attempts to read a picture record from an H.263 bitstream.
 ///
 /// If no valid picture record could be found at the current position in the
 /// reader's bitstream, this function returns `None` and leaves the reader at
 /// the same position.
+///
+/// The set of `DecoderOptions` allows configuring certain information about
+/// the decoding process that cannot be determined by decoding the bitstream
+/// itself.
+///
+/// `previous_picture_options` is the set of options that were enabled by the
+/// last decoded picture. If this is the first decoded picture in the
+/// bitstream, then this should be an empty set.
 fn decode_picture<R>(
     reader: &mut H263Reader<R>,
     decoder_options: DecoderOptions,
+    previous_picture_options: PictureOption,
 ) -> Result<Option<Picture>>
 where
     R: Read,
@@ -435,7 +483,7 @@ where
             }
             None => {
                 let (extra_options, maybe_format, picture_type, followers) =
-                    decode_plusptype(reader, decoder_options)?;
+                    decode_plusptype(reader, decoder_options, previous_picture_options)?;
 
                 options |= extra_options;
 
@@ -493,9 +541,15 @@ where
                 None
             };
 
+        let prediction_reference = if options.contains(PictureOption::ReferencePictureSelection) {
+            decode_trpi(reader)?
+        } else {
+            None
+        };
+
         //TODO: Implement all of the other follower records implied by the
         //options or followers returned from parsing `PlusPType`.
-        //Start from H.263 5.1.14
+        //Start from H.263 5.1.16
 
         Ok(None)
     })
