@@ -4,9 +4,10 @@ use crate::decoder::reader::H263Reader;
 use crate::decoder::types::DecoderOptions;
 use crate::error::{Error, Result};
 use crate::types::{
-    BackchannelMessage, CustomPictureClock, CustomPictureFormat, MotionVectorRange, Picture,
-    PictureOption, PictureTypeCode, PixelAspectRatio, ReferencePictureSelectionMode,
-    ScalabilityLayer, SliceSubmode, SourceFormat,
+    BPictureQuantizer, BackchannelMessage, CustomPictureClock, CustomPictureFormat,
+    MotionVectorRange, Picture, PictureOption, PictureTypeCode, PixelAspectRatio,
+    ReferencePictureResampling, ReferencePictureSelectionMode, ScalabilityLayer, SliceSubmode,
+    SourceFormat,
 };
 use std::io::Read;
 
@@ -470,11 +471,70 @@ where
     })
 }
 
+/// Attempts to read `RPRP` from the bitstream.
+fn decode_rprp<R>(reader: &mut H263Reader<R>) -> Result<Option<ReferencePictureResampling>>
+where
+    R: Read,
+{
+    reader.with_transaction(|reader| Err(Error::UnimplementedDecoding))
+}
+
+/// Attempts to read `TRB` from the bitstream.
+fn decode_trb<R>(reader: &mut H263Reader<R>, has_custom_pclk: bool) -> Result<u8>
+where
+    R: Read,
+{
+    reader.with_transaction(|reader| {
+        if has_custom_pclk {
+            reader.read_bits::<u8>(5)
+        } else {
+            reader.read_bits::<u8>(3)
+        }
+    })
+}
+
+/// Attempts to read `DBQUANT` from the bitstream.
+fn decode_dbquant<R>(reader: &mut H263Reader<R>) -> Result<BPictureQuantizer>
+where
+    R: Read,
+{
+    reader.with_transaction(|reader| match reader.read_bits::<u8>(2)? {
+        0 => Ok(BPictureQuantizer::FiveFourths),
+        1 => Ok(BPictureQuantizer::SixFourths),
+        2 => Ok(BPictureQuantizer::SevenFourths),
+        3 => Ok(BPictureQuantizer::EightFourths),
+        _ => Err(Error::InternalDecoderError),
+    })
+}
+
+/// Attempts to read the `PSUPP` block from the bitstream as another embedded
+/// bitstream.
+fn decode_pei<R>(reader: &mut H263Reader<R>) -> Result<Vec<u8>>
+where
+    R: Read,
+{
+    reader.with_transaction(|reader| {
+        let mut data = Vec::new();
+
+        loop {
+            let has_pei: u8 = reader.read_bits(1)?;
+            if has_pei == 1 {
+                data.push(reader.read_u8()?);
+            } else {
+                break;
+            }
+        }
+
+        Ok(data)
+    })
+}
+
 /// Attempts to read a picture record from an H.263 bitstream.
 ///
 /// If no valid picture record could be found at the current position in the
 /// reader's bitstream, this function returns `None` and leaves the reader at
-/// the same position.
+/// the same position. Otherwise, it returns the picture layer data, with the
+/// reader at the start of the GOB/slice layer data.
 ///
 /// The set of `DecoderOptions` allows configuring certain information about
 /// the decoding process that cannot be determined by decoding the bitstream
@@ -486,7 +546,7 @@ where
 fn decode_picture<R>(
     reader: &mut H263Reader<R>,
     decoder_options: DecoderOptions,
-    previous_picture_options: PictureOption,
+    previous_picture: Option<&Picture>,
 ) -> Result<Option<Picture>>
 where
     R: Read,
@@ -507,8 +567,13 @@ where
                 (Some(format), picture_type, PlusPTypeFollower::empty())
             }
             None => {
-                let (extra_options, maybe_format, picture_type, followers) =
-                    decode_plusptype(reader, decoder_options, previous_picture_options)?;
+                let (extra_options, maybe_format, picture_type, followers) = decode_plusptype(
+                    reader,
+                    decoder_options,
+                    previous_picture
+                        .map(|p| p.options)
+                        .unwrap_or_else(PictureOption::empty),
+                )?;
 
                 options |= extra_options;
 
@@ -522,6 +587,11 @@ where
         //picture options, modes, and followers. We should be inspecting our
         //set of options and raising an error if they're incorrect at this
         //time.
+
+        //TODO: Some pictures don't restate their previous format, but the
+        //contents of the picture rely on if the format has changed. We need
+        //`decode_picture` to be able to look up previous picture headers
+        //somehow.
 
         if followers.contains(PlusPTypeFollower::HasCustomFormat) {
             format = Some(SourceFormat::Extended(decode_cpfmt(reader)?));
@@ -547,7 +617,7 @@ where
             None
         };
 
-        let sss = if followers.contains(PlusPTypeFollower::HasSliceStructuredSubmode) {
+        let slice_submode = if followers.contains(PlusPTypeFollower::HasSliceStructuredSubmode) {
             Some(decode_sss(reader)?)
         } else {
             None
@@ -578,10 +648,58 @@ where
             None
         };
 
-        //TODO: Implement all of the other follower records implied by the
-        //options or followers returned from parsing `PlusPType`.
-        //Start from H.263 5.1.16
+        //TODO: this should be checking against the reference picture to see if we need RPRP
+        let reference_picture_resampling = if options
+            .contains(PictureOption::ReferencePictureResampling)
+            || previous_picture
+                .map(|p| p.format != format)
+                .unwrap_or(false)
+        {
+            decode_rprp(reader)?
+        } else {
+            None
+        };
 
-        Ok(None)
+        let quantizer: u8 = reader.read_bits(5)?;
+
+        if multiplex_bitstream.is_none() {
+            multiplex_bitstream = Some(decode_cpm_and_psbi(reader)?);
+        }
+        let multiplex_bitstream = multiplex_bitstream.unwrap();
+
+        //TODO: This needs to know the picture clock, which has the usual
+        //reference picture thing I mentioned before in the last TODO
+        let (pb_reference, pb_quantizer) = if matches!(
+            picture_type,
+            PictureTypeCode::PBFrame | PictureTypeCode::ImprovedPBFrame
+        ) {
+            (
+                Some(decode_trb(reader, picture_clock.is_some())?),
+                Some(decode_dbquant(reader)?),
+            )
+        } else {
+            (None, None)
+        };
+
+        let extra = decode_pei(reader)?;
+
+        Ok(Some(Picture {
+            temporal_reference,
+            format,
+            options,
+            picture_type,
+            motion_vector_range,
+            slice_submode,
+            scalability_layer,
+            reference_picture_selection_mode,
+            prediction_reference,
+            backchannel_message,
+            reference_picture_resampling,
+            quantizer,
+            multiplex_bitstream,
+            pb_reference,
+            pb_quantizer,
+            extra,
+        }))
     })
 }

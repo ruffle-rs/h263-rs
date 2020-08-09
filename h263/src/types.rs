@@ -11,38 +11,41 @@ pub struct Picture {
     ///
     /// This value may either be 8 or 10 bits wide. This means that references
     /// will overflow after frame 255 or 1023.
-    temporal_reference: u16,
+    pub temporal_reference: u16,
 
     /// The source format of the image. Determines it's resolution and frame
     /// rate.
-    format: SourceFormat,
+    ///
+    /// If unspecified, then the source format matches the reference picture
+    /// for this picture.
+    pub format: Option<SourceFormat>,
 
     /// Options which are enabled (or were implicitly present) on this picture.
-    options: PictureOption,
+    pub options: PictureOption,
 
     /// The intra-prediction mode in use, if any.
-    update_type: PictureTypeCode,
+    pub picture_type: PictureTypeCode,
 
     /// Exactly *how* unlimited our unlimited motion vectors are.
     ///
     /// Must be specified if and only if the `PictureOption` called
     /// `UnlimitedMotionVectors` is also enabled.
-    unlimited_umv_indicator: Option<MotionVectorRange>,
+    pub motion_vector_range: Option<MotionVectorRange>,
 
     /// What slice-structured submodes are active.
     ///
     /// Must be specified if and only if the `PictureOption` called
     /// `SliceStructured` is also enabled.
-    slice_submode: Option<SliceSubmode>,
+    pub slice_submode: Option<SliceSubmode>,
 
     /// Which layer this picture is a member of.
     ///
     /// Only present if Temporal, SNR, and Spatial Scalability mode is enabled.
-    layer: Option<ScalabilityLayer>,
+    pub scalability_layer: Option<ScalabilityLayer>,
 
     /// What backchannel signals is the encoder requesting from it's decoding
     /// partner.
-    reference_picture_selection_mode: Option<ReferencePictureSelectionMode>,
+    pub reference_picture_selection_mode: Option<ReferencePictureSelectionMode>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.14-5.1.15 `TRP`,`TRPI`
     ///
@@ -52,51 +55,50 @@ pub struct Picture {
     /// of the forward-predicted reference frame. If not specified, intra
     /// prediction proceeds as if `ReferencePictureSelection` had not been
     /// enabled.
-    prediction_reference: Option<u16>,
+    pub prediction_reference: Option<u16>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.16 `BCI`
     ///
     /// This field stores any backchannel message requests sent by the encoder.
     /// This field may only be present if `ReferencePictureSelection` has been
     /// enabled.
-    backchannel_message: Option<BackchannelMessage>,
+    pub backchannel_message: Option<BackchannelMessage>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.18 `RPRP`
     ///
     /// Carries the parameters of the `ReferencePictureResampling` mode.
-    ///
-    /// TODO: Actually fill out the accompanying struct.
-    rpr_params: Option<()>,
+    pub reference_picture_resampling: Option<ReferencePictureResampling>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.19 `PQUANT`
     ///
     /// The quantizer factor to be used for this picture (unless otherwise
     /// overridden in a particular lower layer).
-    quantizer: Option<u8>,
+    pub quantizer: u8,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.20-5.1.21 `CPM`, `PSBI`
     ///
     /// A number from 0 to 3 indicating which multipoint sub-bitstream this
-    /// picture is a member of.
-    multiplex_bitstream: Option<u8>,
+    /// picture is a member of. If `None`, then the continuous presence
+    /// multipoint feature is not enabled.
+    pub multiplex_bitstream: Option<u8>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.22 `TRb`
     ///
     /// The number of non-transmitted frames to the B half of the current PB
     /// frame. This field should not be present if not using PB frames or their
     /// improved variety.
-    pb_reference: Option<u8>,
+    pub pb_reference: Option<u8>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.23 `DBQUANT`
     ///
     /// The quantization factor used for the B block of a PB frame. This field
     /// should not be present if not using PB frames or their improved variety.
-    pb_quantizer: Option<u8>,
+    pub pb_quantizer: Option<BPictureQuantizer>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.24 `PEI`
     ///
     /// Extra information bytes which may have been added to this picture.
-    extra: Option<Vec<u8>>,
+    pub extra: Vec<u8>,
 }
 
 /// The default resolution options available in H.263.
@@ -110,6 +112,7 @@ pub struct Picture {
 /// Most other `SourceFormat` variants are multiples of the CIF picture count.
 /// Note that the multiples refer to total pixel count; i.e. a `FourCIF` format
 /// image is twice the width and height of a `FullCIF` format image.
+#[derive(PartialEq)]
 pub enum SourceFormat {
     /// 128x96 @ 30000/1001hz
     SubQCIF,
@@ -204,6 +207,7 @@ pub enum PictureTypeCode {
 /// ITU-T Recommendation H.263 (01/2005) 5.1.5-5.1.6 `CPFMT`, `EPAR`
 ///
 /// This defines a "custom" picture format, outside of the standard CIF options.
+#[derive(PartialEq)]
 pub struct CustomPictureFormat {
     /// The aspect ratio of a single pixel.
     pub pixel_aspect_ratio: PixelAspectRatio,
@@ -230,6 +234,7 @@ pub struct CustomPictureFormat {
 /// Most modern video formats should be `Square`. Legacy analog formats may be
 /// stored in one of the `ParNN_NN` formats. A custom PAR may be indicated with
 /// the `Extended` option.
+#[derive(PartialEq)]
 pub enum PixelAspectRatio {
     /// 1:1 pixel aspect ratio. Most common on modern displays.
     Square,
@@ -381,4 +386,35 @@ pub enum BackchannelMessageType {
 pub enum BackchannelReliability {
     Reliable,
     Unreliable,
+}
+
+/// ITU-T Recommendation H.263 (01/2005) P.2 `RPRP`
+///
+/// The parameters necessary for reference-picture resampling.
+pub struct ReferencePictureResampling {
+    accuracy: WarpingDisplacementAccuracy,
+
+    /// The eight warping parameters for reference picture resampling.
+    ///
+    /// Each parameter is encoded according to table `D.3` in H.263 (01/2005).
+    /// This is a variable-length code whose decoded values max out at around
+    /// 11 bits.
+    warps: Option<[u16; 8]>,
+}
+
+/// ITU-T Recommendation H.263 (01/2005) P.2.1 `WDA`
+pub enum WarpingDisplacementAccuracy {
+    /// Warping parameters are quantized to half-pixel accuracy.
+    HalfPixel,
+
+    /// Warping parameters are quantized to sixteenth-pixel accuracy.
+    SixteenthPixel,
+}
+
+/// ITU-T Recommendation H.263 (01/2005), 5.1.23 `DBQUANT`
+pub enum BPictureQuantizer {
+    FiveFourths,
+    SixFourths,
+    SevenFourths,
+    EightFourths,
 }
