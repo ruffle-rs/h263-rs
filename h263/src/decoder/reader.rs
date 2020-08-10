@@ -224,13 +224,14 @@ where
     /// Closures passed to this function must yield an `Option`, wrapped in a
     /// `Result`. The buffer position will not be modified if the function
     /// yields `Err` or `None`. Use `None` to signal that the desired data does
-    /// not exist in the bitstream (e.g. for data that could be one of multiple
-    /// types)
+    /// not exist in the bitstream. The intended usage of this function is to
+    /// allow parsing data that may be one of multiple types; ergo, in this
+    /// case a `None` value means "try some other type".
     ///
     /// TODO: This function does not discard successfully parsed buffer data
     /// via `commit` due to the lack of safety tracking on checkpoints. This
     /// function should be reentrant.
-    pub fn with_transaction_option<F, T>(&mut self, f: F) -> Result<Option<T>>
+    pub fn with_transaction_union<F, T>(&mut self, f: F) -> Result<Option<T>>
     where
         F: FnOnce(&mut Self) -> Result<Option<T>>,
     {
