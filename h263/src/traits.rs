@@ -1,8 +1,31 @@
 //! Traits
 
-use num_traits::{CheckedShl, Zero};
-use std::ops::BitOr;
+use num_traits::{CheckedShl, CheckedShr, One, Zero};
+use std::cmp::Eq;
+use std::ops::{BitAnd, BitOr};
 
-pub trait BitReadable: CheckedShl + BitOr<Self, Output = Self> + Zero + From<u8> {}
+pub trait BitReadable:
+    Copy
+    + CheckedShl
+    + CheckedShr
+    + BitOr<Self, Output = Self>
+    + BitAnd<Self, Output = Self>
+    + Eq
+    + Zero
+    + One
+    + From<u8>
+{
+}
 
-impl<T> BitReadable for T where T: CheckedShl + BitOr<Self, Output = Self> + Zero + From<u8> {}
+impl<T> BitReadable for T where
+    T: Copy
+        + CheckedShl
+        + CheckedShr
+        + BitOr<Self, Output = Self>
+        + BitAnd<Self, Output = Self>
+        + Eq
+        + Zero
+        + One
+        + From<u8>
+{
+}

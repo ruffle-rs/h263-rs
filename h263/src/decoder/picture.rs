@@ -552,10 +552,7 @@ where
     R: Read,
 {
     reader.with_transaction_union(|reader| {
-        reader.skip_to_alignment()?;
-
-        let psc: u32 = reader.read_bits(22)?;
-        if psc != 0x000020 {
+        if !reader.recognize_start_code(0x000020, 22)? {
             return Ok(None);
         }
 

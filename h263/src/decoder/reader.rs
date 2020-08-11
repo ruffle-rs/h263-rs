@@ -6,6 +6,22 @@ use std::cmp::min;
 use std::collections::VecDeque;
 use std::io::Read;
 
+/// Given a bit count, construct a bitmask with that many bits set to one.
+///
+/// Bits will be shifted in towards the left, and thus the resulting bitmask
+/// will be aligned to the lowest bits in the type. For example, asking for six
+/// bits in a u16 will result in a bitmask of 0x006F. This matches the behavior
+/// of `H263Reader::peek_bits`.
+fn bitmask_from_popcount<T: BitReadable>(bits_needed: u32) -> T {
+    let mut result = T::zero();
+
+    for _ in 0..bits_needed {
+        result = result << 1 | T::one();
+    }
+
+    result
+}
+
 /// A reader that allows decoding an H.263 compliant bitstream.
 ///
 /// This reader implements an internal buffer that can be read from as a series
@@ -126,17 +142,6 @@ where
         Ok(())
     }
 
-    /// Skip bits until the bitstream is aligned.
-    pub fn skip_to_alignment(&mut self) -> Result<()> {
-        let misalignment = self.bits_read % 8;
-
-        if misalignment > 0 {
-            self.skip_bits(8 - misalignment as u32)
-        } else {
-            Ok(())
-        }
-    }
-
     /// Move an arbitrary number of bits from the stream out into a type.
     ///
     /// This function operates similar to `peek_bits`, but the internal buffer
@@ -152,6 +157,48 @@ where
     /// Read a `u8` from the bitstream.
     pub fn read_u8(&mut self) -> Result<u8> {
         self.read_bits(8)
+    }
+
+    /// Determine how many bits we need to skip forward to realign the stream
+    /// pointer with the next byte boundary.
+    fn realignment_bits(&self) -> u32 {
+        (8 - (self.bits_read % 3) as u32) % 3
+    }
+
+    /// Recognize a start code in the bitstream.
+    ///
+    /// H.263 start codes are particularly annoying because they are optionally
+    /// aligned: encoders are free to insert up to eight bits of stuffing in
+    /// order to achieve byte alignment. This function recognizes a start code
+    /// up to eight bits ahead, taking specific care to ensure that the amount
+    /// of stuffing bits present before the start code does not exceed the
+    /// number of bits necessary to realign the bitstream to the next byte
+    /// boundary.
+    ///
+    /// If the start code is recognized, then this function returns `true`, and
+    /// also skips forward in the bitstream to the end of the start code.
+    /// Otherwise, it returns `false`, and keeps the bitstream position where
+    /// it is.
+    pub fn recognize_start_code<T: BitReadable>(
+        &mut self,
+        code: T,
+        bits_needed: u32,
+    ) -> Result<bool> {
+        let mut bits_needed_w_stuffing = bits_needed + self.realignment_bits();
+        let mut maybe_code: T = self.peek_bits(bits_needed_w_stuffing)?;
+        let mask: T = bitmask_from_popcount(bits_needed);
+
+        while bits_needed_w_stuffing >= bits_needed {
+            if (maybe_code & mask) == code {
+                self.skip_bits(bits_needed_w_stuffing)?;
+                return Ok(true);
+            }
+
+            bits_needed_w_stuffing -= 1;
+            maybe_code = maybe_code >> 1;
+        }
+
+        Ok(false)
     }
 
     /// Yield a checkpoint value that can be used to abort a complex read
@@ -272,5 +319,48 @@ mod tests {
         assert_eq!(0x3F, reader.peek_bits(6).unwrap());
         assert_eq!(0x7FB90E, reader.peek_bits(23).unwrap());
         reader.peek_bits::<u64>(64).unwrap_err();
+    }
+
+    #[test]
+    fn bitmask_from_popcount() {
+        assert_eq!(super::bitmask_from_popcount::<u8>(5), 0x1F);
+        assert_eq!(super::bitmask_from_popcount::<u16>(5), 0x001F);
+        assert_eq!(super::bitmask_from_popcount::<u8>(0), 0x0);
+        assert_eq!(super::bitmask_from_popcount::<u16>(16), 0xFFFF);
+        assert_eq!(super::bitmask_from_popcount::<u8>(16), 0xFF);
+    }
+
+    #[test]
+    fn aligned_start_code() {
+        let data = [0x00, 0x00, 0x80, 0x00];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        assert!(reader.recognize_start_code(0x000020, 22).unwrap());
+    }
+
+    #[test]
+    fn stuffed_start_code() {
+        let data = [0x00, 0x00, 0x08, 0x00];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        reader.skip_bits(4).unwrap();
+
+        assert!(reader.recognize_start_code(0x000020, 22).unwrap());
+    }
+
+    #[test]
+    fn misaligned_start_code() {
+        let data = [0x00, 0x00, 0x08, 0x00];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        assert!(!reader.recognize_start_code(0x000020, 22).unwrap());
+    }
+
+    #[test]
+    fn wrong_start_code() {
+        let data = [0x00, 0x00, 0x80, 0x00];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        assert!(!reader.recognize_start_code(0x010020, 22).unwrap());
     }
 }
