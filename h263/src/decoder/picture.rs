@@ -552,9 +552,19 @@ where
     R: Read,
 {
     reader.with_transaction_union(|reader| {
-        if !reader.recognize_start_code(0x000020, 22)? {
+        // Sorenson Spark pictures abuse the final bits of the start code as a
+        // version field.
+        let version = if decoder_options.contains(DecoderOptions::SorensonSparkBitstream) {
+            if !reader.recognize_start_code(0x00001, 17)? {
+                return Ok(None);
+            } else {
+                Some(reader.read_bits(5)?)
+            }
+        } else if !reader.recognize_start_code(0x000020, 22)? {
             return Ok(None);
-        }
+        } else {
+            None
+        };
 
         let low_tr = reader.read_u8()?;
         let (mut options, maybe_format_and_type) = decode_ptype(reader)?;
@@ -681,6 +691,7 @@ where
         let extra = decode_pei(reader)?;
 
         Ok(Some(Picture {
+            version,
             temporal_reference,
             format,
             options,
