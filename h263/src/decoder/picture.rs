@@ -261,6 +261,65 @@ where
     })
 }
 
+type SorensonPType = (SourceFormat, PictureTypeCode, PictureOption);
+
+/// Attempts to read a Sorenson-equivalent PTYPE from the bitstream.
+fn decode_sorenson_ptype<R>(reader: &mut H263Reader<R>) -> Result<SorensonPType>
+where
+    R: Read,
+{
+    reader.with_transaction(|reader| {
+        let (mut source_format, bit_count) = match reader.read_bits(3)? {
+            0 => (None, 8),
+            1 => (None, 16),
+            2 => (Some(SourceFormat::FullCIF), 0),
+            3 => (Some(SourceFormat::QuarterCIF), 0),
+            4 => (Some(SourceFormat::SubQCIF), 0),
+            5 => (
+                Some(SourceFormat::Extended(CustomPictureFormat {
+                    pixel_aspect_ratio: PixelAspectRatio::Square,
+                    picture_width_indication: 320,
+                    picture_height_indication: 240,
+                })),
+                0,
+            ),
+            6 => (
+                Some(SourceFormat::Extended(CustomPictureFormat {
+                    pixel_aspect_ratio: PixelAspectRatio::Square,
+                    picture_width_indication: 160,
+                    picture_height_indication: 120,
+                })),
+                0,
+            ),
+            _ => (Some(SourceFormat::Reserved), 0),
+        };
+
+        if source_format.is_none() {
+            let custom_width = reader.read_bits(bit_count)?;
+            let custom_height = reader.read_bits(bit_count)?;
+
+            source_format = Some(SourceFormat::Extended(CustomPictureFormat {
+                pixel_aspect_ratio: PixelAspectRatio::Square,
+                picture_width_indication: custom_width,
+                picture_height_indication: custom_height,
+            }));
+        }
+
+        let picture_type = match reader.read_bits(2)? {
+            0 => PictureTypeCode::IFrame,
+            1 => PictureTypeCode::PFrame,
+            2 => PictureTypeCode::DisposablePFrame,
+            r => PictureTypeCode::Reserved(r),
+        };
+
+        let mut options = PictureOption::empty();
+
+        options |= PictureOption::UseDeblocker;
+
+        Ok((source_format.unwrap(), picture_type, options))
+    })
+}
+
 /// Attempts to read `CPM` and `PSBI` records from the bitstream.
 ///
 /// The placement of this record changes based on whether or not a `PLUSPTYPE`
@@ -315,8 +374,8 @@ where
             r => PixelAspectRatio::Reserved(r as u8),
         };
 
-        let picture_width_indication = ((cpfmt & 0x07FC00) >> 10) as u8;
-        let picture_height_indication = (cpfmt & 0x0000FF) as u8;
+        let picture_width_indication = (((cpfmt & 0x07FC00) >> 10) as u16 + 1) * 4;
+        let picture_height_indication = ((cpfmt & 0x0000FF) as u16) * 4;
 
         Ok(CustomPictureFormat {
             pixel_aspect_ratio,
@@ -554,17 +613,43 @@ where
     reader.with_transaction_union(|reader| {
         // Sorenson Spark pictures abuse the final bits of the start code as a
         // version field.
-        let version = if decoder_options.contains(DecoderOptions::SorensonSparkBitstream) {
+        if decoder_options.contains(DecoderOptions::SorensonSparkBitstream) {
             if !reader.recognize_start_code(0x00001, 17)? {
                 return Ok(None);
             } else {
-                Some(reader.read_bits(5)?)
+                let version = Some(reader.read_bits(5)?);
+                let temporal_reference = reader.read_u8()? as u16;
+                let (source_format, picture_type, options) = decode_sorenson_ptype(reader)?;
+                let quantizer: u8 = reader.read_bits(5)?;
+                let extra = decode_pei(reader)?;
+
+                return Ok(Some(Picture {
+                    version,
+                    temporal_reference,
+                    format: Some(source_format),
+                    options,
+                    picture_type,
+                    quantizer,
+                    extra,
+
+                    //Sorenson is always unlimited
+                    motion_vector_range: Some(MotionVectorRange::Unlimited),
+
+                    //Here's a bunch more modes Sorenson doesn't use.
+                    slice_submode: None,
+                    scalability_layer: None,
+                    reference_picture_selection_mode: None,
+                    prediction_reference: None,
+                    backchannel_message: None,
+                    reference_picture_resampling: None,
+                    multiplex_bitstream: None,
+                    pb_reference: None,
+                    pb_quantizer: None,
+                }));
             }
         } else if !reader.recognize_start_code(0x000020, 22)? {
             return Ok(None);
-        } else {
-            None
-        };
+        }
 
         let low_tr = reader.read_u8()?;
         let (mut options, maybe_format_and_type) = decode_ptype(reader)?;
@@ -691,7 +776,7 @@ where
         let extra = decode_pei(reader)?;
 
         Ok(Some(Picture {
-            version,
+            version: None,
             temporal_reference,
             format,
             options,
