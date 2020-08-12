@@ -438,3 +438,36 @@ pub enum BPictureQuantizer {
     SevenFourths,
     EightFourths,
 }
+
+/// ITU-T Recommendation H.263 (01/2005), 5.2.x `GN`, `GSBI`, `GFID`, `GQUANT`
+///
+/// In an H.264-compliant bitstream, each picture is composed of one or more
+/// groups of blocks. The first group of blocks is implied and *not*
+/// transmitted in a compliant bitstream. Sorenson bitstreams treat all
+/// pictures as a single group of blocks, and thus will not use this structure.
+pub struct GroupOfBlocks {
+    /// The GOB number.
+    ///
+    /// This number is never 0, as the picture header is also treated as if it
+    /// were the first GOB header. Furthermore, this is limited to groups 1-17
+    /// when standard picture source formats (CIF) are used, or 1-24 for custom
+    /// picture formats. Higher group numbers are prohibited as they are used
+    /// in slice-structured mode or end codes.
+    pub group_number: u8,
+
+    /// ITU-T Recommendation H.263 (01/2005) 5.2.4 `GSBI`
+    ///
+    /// A number from 0 to 3 indicating which multipoint sub-bitstream this
+    /// group of blocks is a member of. If `None`, then the continuous presence
+    /// multipoint feature is not enabled.
+    pub multiplex_bitstream: Option<u8>,
+
+    /// ITU-T Recommendation H.263 (01/2005) 5.2.5 `GFID`
+    pub frame_id: u8,
+
+    /// ITU-T Recommendation H.263 (01/2005) 5.2.6 `GQUANT`
+    ///
+    /// The quantizer factor to be used for this group of blocks until later
+    /// changed by another GOB or macroblock.
+    pub quantizer: u8,
+}

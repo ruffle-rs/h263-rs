@@ -3,6 +3,7 @@
 use crate::decoder::reader::H263Reader;
 use crate::decoder::types::DecoderOptions;
 use crate::error::{Error, Result};
+use crate::types::GroupOfBlocks;
 use std::io::Read;
 
 /// Attempts to read a GOB record from an H.263 bitstream.
@@ -17,7 +18,10 @@ use std::io::Read;
 /// itself.
 ///
 /// TODO: GOB decoding is a stub (and likely will always be so)
-fn decode_gob<R>(reader: &mut H263Reader<R>, _decoder_options: DecoderOptions) -> Result<Option<()>>
+fn decode_gob<R>(
+    reader: &mut H263Reader<R>,
+    _decoder_options: DecoderOptions,
+) -> Result<Option<GroupOfBlocks>>
 where
     R: Read,
 {
