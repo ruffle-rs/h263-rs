@@ -10,3 +10,4 @@ mod decoder;
 mod error;
 mod traits;
 mod types;
+mod vlc;

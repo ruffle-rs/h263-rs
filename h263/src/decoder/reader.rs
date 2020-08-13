@@ -2,6 +2,7 @@
 
 use crate::error::{Error, Result};
 use crate::traits::BitReadable;
+use crate::vlc::{Entry, Table};
 use std::cmp::min;
 use std::collections::VecDeque;
 use std::io::Read;
@@ -92,10 +93,12 @@ where
     /// The bits will be returned such that the read-out bits start from the
     /// least significant bit of the returned type. This means that, say,
     /// reading two bits from the bitstream will result in a value that has
-    /// been zero-extended.
+    /// been zero-extended. This can be useful for populating structs with
+    /// bitstream data which matches the binary representation of the type the
+    /// struct uses.
     ///
     /// This function does not remove bits from the buffer. Repeated calls to
-    /// peek_bits return the same bits.
+    /// `peek_bits` return the same bits.
     ///
     /// The `bits_needed` must not exceed the maximum width of the type. Any
     /// attempt to do so will result in an error.
@@ -199,6 +202,38 @@ where
         }
 
         Ok(false)
+    }
+
+    /// Read a variable-length code.
+    ///
+    /// The table consists of a list of `Entry`s. All `Fork`s in the table must
+    /// have valid indicies and all links in the table must form a directed
+    /// acyclic graph.
+    ///
+    /// This function yields `Error::InternalDecoderError` in the event that
+    /// the given table is invalid, as well as all other unhandled I/O errors.
+    /// In the event that an error is returned, the position of the bitstream
+    /// is undefined. This is in contrast to fixed-length read functions which
+    /// consistently leave the bitstream in the same position if enough bits
+    /// for the type could not be read.
+    pub fn read_vlc<T: Clone>(&mut self, table: &Table<T>) -> Result<T> {
+        let mut index = 0;
+
+        Ok(loop {
+            match table.get(index) {
+                Some(Entry::End(t)) => break t.clone(),
+                Some(Entry::Fork(zero, one)) => {
+                    let next_bit: u8 = self.read_bits(1)?;
+
+                    if next_bit == 0 {
+                        index = *zero;
+                    } else {
+                        index = *one;
+                    }
+                }
+                None => return Err(Error::InternalDecoderError),
+            }
+        })
     }
 
     /// Yield a checkpoint value that can be used to abort a complex read
