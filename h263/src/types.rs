@@ -471,3 +471,71 @@ pub struct GroupOfBlocks {
     /// changed by another GOB or macroblock.
     pub quantizer: u8,
 }
+
+/// ITU-T Recommendation H.263 (01/2005), 5.3 Macroblock layer
+pub enum Macroblock {
+    /// Indicates a macroblock that isn't coded.
+    ///
+    /// This macroblock type is only valid outside of I-pictures, and indicates
+    /// a macroblock which should be replaced with it's reference picture data.
+    Uncoded,
+
+    /// Indicates non-coding bits inserted to avoid a run of 16 consecutive
+    /// zeroes.
+    Stuffing,
+
+    /// Indicates a coded macroblock containing picture data.
+    Coded {
+        /// The type of macroblock sent.
+        mb_type: MacroblockType,
+
+        /// The blocks within the macroblock that contain non-DC components.
+        coded_block_pattern: CodedBlockPattern,
+
+        /// ITU-T Recommendation H.263 (01/2005) 5.3.6 `DQUANT`
+        d_quantizer: Option<i8>,
+
+        /// ITU-T Recommendation H.263 (01/2005) 5.3.7 `MVD`
+        motion_vector: MotionVector,
+
+        /// ITU-T Recommendation H.263 (01/2005) 5.3.8 `MVD2-4`
+        addl_motion_vectors: Option<[MotionVector; 3]>,
+    },
+}
+
+/// ITU-T Recommendation H.263 (01/2005), 5.3.2 `MCBPC` (block-type half)
+pub enum MacroblockType {
+    /// Macroblock.
+    Inter,
+
+    /// Macroblock with quantizer delta.
+    InterQ,
+
+    /// Macroblock with motion vectors.
+    Inter4V,
+
+    /// Macroblock with `INTRADC` components.
+    Intra,
+
+    /// Macroblock with `INTRADC` components and quantizer delta.
+    IntraQ,
+
+    /// Macroblock with quantizer delta and motion vectors.
+    Intra4VQ,
+}
+
+/// ITU-T Recommendation H.263 (01/2005), 5.3.2 `MCBPC`, 5.3.5 `CBPY`
+///
+/// Coded block pattern bits that indicate which blocks contain frequency
+/// components to be coded for.
+pub struct CodedBlockPattern {
+    codes_luma: [bool; 4],
+    codes_chroma_b: bool,
+    codes_chroma_r: bool,
+}
+
+/// Half-pixel motion vector components.
+pub struct HalfPel(u16);
+
+/// A motion vector consisting of X and Y components.
+pub struct MotionVector(HalfPel, HalfPel);
