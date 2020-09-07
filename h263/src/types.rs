@@ -504,6 +504,7 @@ pub enum Macroblock {
 }
 
 /// ITU-T Recommendation H.263 (01/2005), 5.3.2 `MCBPC` (block-type half)
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MacroblockType {
     /// Macroblock.
     Inter,
@@ -521,13 +522,14 @@ pub enum MacroblockType {
     IntraQ,
 
     /// Macroblock with quantizer delta and motion vectors.
-    Intra4VQ,
+    Inter4VQ,
 }
 
 /// ITU-T Recommendation H.263 (01/2005), 5.3.2 `MCBPC`, 5.3.5 `CBPY`
 ///
 /// Coded block pattern bits that indicate which blocks contain frequency
 /// components to be coded for.
+#[derive(Clone)]
 pub struct CodedBlockPattern {
     codes_luma: [bool; 4],
     codes_chroma_b: bool,

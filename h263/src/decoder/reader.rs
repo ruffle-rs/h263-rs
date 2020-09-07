@@ -49,7 +49,7 @@ where
     R: Read,
 {
     /// Wrap a source file in a reader.
-    fn from_source(source: R) -> Self {
+    pub fn from_source(source: R) -> Self {
         Self {
             source,
             buffer: VecDeque::new(),
