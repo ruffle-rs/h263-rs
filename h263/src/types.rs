@@ -492,6 +492,10 @@ pub enum Macroblock {
         /// The blocks within the macroblock that contain non-DC components.
         coded_block_pattern: CodedBlockPattern,
 
+        /// The blocks within the macroblock that correspond to the B component
+        /// of the B frame.
+        coded_block_pattern_b: Option<CodedBlockPattern>,
+
         /// ITU-T Recommendation H.263 (01/2005) 5.3.6 `DQUANT`
         d_quantizer: Option<i8>,
 
@@ -531,13 +535,19 @@ pub enum MacroblockType {
 /// components to be coded for.
 #[derive(Clone)]
 pub struct CodedBlockPattern {
-    codes_luma: [bool; 4],
-    codes_chroma_b: bool,
-    codes_chroma_r: bool,
+    pub codes_luma: [bool; 4],
+    pub codes_chroma_b: bool,
+    pub codes_chroma_r: bool,
 }
 
 /// Half-pixel motion vector components.
-pub struct HalfPel(u16);
+pub struct HalfPel(i16);
+
+impl From<f32> for HalfPel {
+    fn from(float: f32) -> Self {
+        HalfPel((float * 2.0).floor() as i16)
+    }
+}
 
 /// A motion vector consisting of X and Y components.
 pub struct MotionVector(HalfPel, HalfPel);
