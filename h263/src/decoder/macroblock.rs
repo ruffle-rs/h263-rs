@@ -3,8 +3,8 @@
 use crate::decoder::reader::H263Reader;
 use crate::error::{Error, Result};
 use crate::types::{
-    CodedBlockPattern, HalfPel, Macroblock, MacroblockType, MotionVector, Picture, PictureOption,
-    PictureTypeCode,
+    CodedBlockPattern, HalfPel, Macroblock, MacroblockType, MotionVector, MotionVectorRange,
+    Picture, PictureOption, PictureTypeCode,
 };
 use crate::vlc::{Entry, Entry::End, Entry::Fork};
 use std::io::Read;
@@ -409,23 +409,36 @@ const MVD_TABLE: [Entry<Option<f32>>; 130] = [
 ///
 /// This currently only handles standard range motion vectors, not unrestricted
 /// ones.
-fn decode_motion_vector<R>(reader: &mut H263Reader<R>) -> Result<MotionVector>
+fn decode_motion_vector<R>(
+    reader: &mut H263Reader<R>,
+    picture: &Picture,
+    running_options: PictureOption,
+) -> Result<MotionVector>
 where
     R: Read,
 {
     reader.with_transaction(|reader| {
-        let x = HalfPel::from(
-            reader
-                .read_vlc(&MVD_TABLE[..])?
-                .ok_or(Error::InvalidBitstream)?,
-        );
-        let y = HalfPel::from(
-            reader
-                .read_vlc(&MVD_TABLE[..])?
-                .ok_or(Error::InvalidBitstream)?,
-        );
+        if running_options.contains(PictureOption::UnrestrictedMotionVectors)
+            && picture.has_plusptype
+        {
+            let x = reader.read_umv()?;
+            let y = reader.read_umv()?;
 
-        Ok((x, y).into())
+            Ok((x, y).into())
+        } else {
+            let x = HalfPel::from(
+                reader
+                    .read_vlc(&MVD_TABLE[..])?
+                    .ok_or(Error::InvalidBitstream)?,
+            );
+            let y = HalfPel::from(
+                reader
+                    .read_vlc(&MVD_TABLE[..])?
+                    .ok_or(Error::InvalidBitstream)?,
+            );
+
+            Ok((x, y).into())
+        }
     })
 }
 
@@ -496,7 +509,7 @@ where
             };
 
             let motion_vector = if mb_type.is_inter() || picture.picture_type.is_any_pbframe() {
-                Some(decode_motion_vector(reader)?)
+                Some(decode_motion_vector(reader, picture, running_options)?)
             } else {
                 None
             };
@@ -504,9 +517,9 @@ where
             let addl_motion_vectors = if running_options.contains(PictureOption::AdvancedPrediction)
                 && mb_type.has_fourvec()
             {
-                let mv2 = decode_motion_vector(reader)?;
-                let mv3 = decode_motion_vector(reader)?;
-                let mv4 = decode_motion_vector(reader)?;
+                let mv2 = decode_motion_vector(reader, picture, running_options)?;
+                let mv3 = decode_motion_vector(reader, picture, running_options)?;
+                let mv4 = decode_motion_vector(reader, picture, running_options)?;
 
                 Some([mv2, mv3, mv4])
             } else {
@@ -514,10 +527,10 @@ where
             };
 
             let motion_vectors_b = if has_mvdb {
-                let mv1 = decode_motion_vector(reader)?;
-                let mv2 = decode_motion_vector(reader)?;
-                let mv3 = decode_motion_vector(reader)?;
-                let mv4 = decode_motion_vector(reader)?;
+                let mv1 = decode_motion_vector(reader, picture, running_options)?;
+                let mv2 = decode_motion_vector(reader, picture, running_options)?;
+                let mv3 = decode_motion_vector(reader, picture, running_options)?;
+                let mv4 = decode_motion_vector(reader, picture, running_options)?;
 
                 Some([mv1, mv2, mv3, mv4])
             } else {

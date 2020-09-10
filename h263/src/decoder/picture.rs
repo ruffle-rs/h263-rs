@@ -103,11 +103,14 @@ bitflags! {
 /// specify a `SourceFormat` or if it specified a custom one. To determine if
 /// one needs to be parsed, read the `PlusPTypeFollower`s, which indicate
 /// additional records which follow this one in the bitstream.
+///
+/// The `bool` indicates if `OPPTYPE` was present in the `PLUSPTYPE` record.
 pub type PlusPType = (
     PictureOption,
     Option<SourceFormat>,
     PictureTypeCode,
     PlusPTypeFollower,
+    bool,
 );
 
 /// The set of picture options defined by an `OPPTYPE` record.
@@ -257,7 +260,7 @@ where
             options |= PictureOption::RoundingTypeOne;
         }
 
-        Ok((options, source_format, picture_type, followers))
+        Ok((options, source_format, picture_type, followers, has_opptype))
     })
 }
 
@@ -628,6 +631,8 @@ where
                     temporal_reference,
                     format: Some(source_format),
                     options,
+                    has_plusptype: false,
+                    has_opptype: false,
                     picture_type,
                     quantizer,
                     extra,
@@ -654,26 +659,32 @@ where
         let low_tr = reader.read_u8()?;
         let (mut options, maybe_format_and_type) = decode_ptype(reader)?;
         let mut multiplex_bitstream = None;
-        let (mut format, picture_type, followers) = match maybe_format_and_type {
-            Some((format, picture_type)) => {
-                (Some(format), picture_type, PlusPTypeFollower::empty())
-            }
-            None => {
-                let (extra_options, maybe_format, picture_type, followers) = decode_plusptype(
-                    reader,
-                    decoder_options,
-                    previous_picture
-                        .map(|p| p.options)
-                        .unwrap_or_else(PictureOption::empty),
-                )?;
+        let (mut format, picture_type, followers, has_plusptype, has_opptype) =
+            match maybe_format_and_type {
+                Some((format, picture_type)) => (
+                    Some(format),
+                    picture_type,
+                    PlusPTypeFollower::empty(),
+                    false,
+                    false,
+                ),
+                None => {
+                    let (extra_options, maybe_format, picture_type, followers, has_opptype) =
+                        decode_plusptype(
+                            reader,
+                            decoder_options,
+                            previous_picture
+                                .map(|p| p.options)
+                                .unwrap_or_else(PictureOption::empty),
+                        )?;
 
-                options |= extra_options;
+                    options |= extra_options;
 
-                multiplex_bitstream = Some(decode_cpm_and_psbi(reader)?);
+                    multiplex_bitstream = Some(decode_cpm_and_psbi(reader)?);
 
-                (maybe_format, picture_type, followers)
-            }
-        };
+                    (maybe_format, picture_type, followers, true, has_opptype)
+                }
+            };
 
         //TODO: H.263 5.1.4.4-6 indicate a number of semantic restrictions on
         //picture options, modes, and followers. We should be inspecting our
@@ -780,6 +791,8 @@ where
             temporal_reference,
             format,
             options,
+            has_plusptype,
+            has_opptype,
             picture_type,
             motion_vector_range,
             slice_submode,

@@ -29,6 +29,16 @@ pub struct Picture {
     /// Options which are enabled (or were implicitly present) on this picture.
     pub options: PictureOption,
 
+    /// Indicates if this picture was sent with a `PLUSPTYPE`.
+    pub has_plusptype: bool,
+
+    /// Indicates if this picture was sent with an `OPPTYPE`.
+    ///
+    /// The absence of an `OPPTYPE` leaves several `PictureOption`s unset that
+    /// are still in force; higher-level decoder machinery is responsible for
+    /// keeping track of options in force from previous pictures.
+    pub has_opptype: bool,
+
     /// The intra-prediction mode in use, if any.
     pub picture_type: PictureTypeCode,
 
@@ -584,6 +594,14 @@ pub struct HalfPel(i16);
 impl From<f32> for HalfPel {
     fn from(float: f32) -> Self {
         HalfPel((float * 2.0).floor() as i16)
+    }
+}
+
+impl HalfPel {
+    // Construct a half-pel from some value that already contains half-pel
+    // units.
+    pub fn from_unit(unit: i16) -> Self {
+        HalfPel(unit)
     }
 }
 

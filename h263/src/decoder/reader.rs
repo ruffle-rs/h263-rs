@@ -2,6 +2,7 @@
 
 use crate::error::{Error, Result};
 use crate::traits::BitReadable;
+use crate::types::HalfPel;
 use crate::vlc::{Entry, Table};
 use std::cmp::min;
 use std::collections::VecDeque;
@@ -234,6 +235,41 @@ where
                 None => return Err(Error::InternalDecoderError),
             }
         })
+    }
+
+    /// Read an unrestricted motion vector.
+    ///
+    /// The bit format of an unrestricted motion vector is specified in H.263
+    /// (01/2005) table D.3/H.263.
+    ///
+    /// UMVs with a magnitude of 4096 or larger will result in a decode error.
+    pub fn read_umv(&mut self) -> Result<HalfPel> {
+        let start: u8 = self.read_bits(1)?;
+
+        if start == 1 {
+            return Ok(HalfPel::from_unit(0));
+        }
+
+        let mut mantissa = 0;
+        let mut bulk = 1;
+
+        while bulk < 4096 {
+            match self.read_bits(2)? {
+                0b00 => return Ok(HalfPel::from_unit(mantissa + bulk)),
+                0b10 => return Ok(HalfPel::from_unit(-(mantissa + bulk))),
+                0b01 => {
+                    mantissa <<= 1;
+                    bulk <<= 1;
+                }
+                0b11 => {
+                    mantissa = mantissa << 1 | 1;
+                    bulk <<= 1;
+                }
+                _ => return Err(Error::InternalDecoderError),
+            }
+        }
+
+        Err(Error::InvalidBitstream)
     }
 
     /// Yield a checkpoint value that can be used to abort a complex read
