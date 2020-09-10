@@ -3,7 +3,8 @@
 use crate::decoder::reader::H263Reader;
 use crate::error::{Error, Result};
 use crate::types::{
-    CodedBlockPattern, HalfPel, Macroblock, MacroblockType, Picture, PictureOption, PictureTypeCode,
+    CodedBlockPattern, HalfPel, Macroblock, MacroblockType, MotionVector, Picture, PictureOption,
+    PictureTypeCode,
 };
 use crate::vlc::{Entry, Entry::End, Entry::Fork};
 use std::io::Read;
@@ -404,10 +405,41 @@ const MVD_TABLE: [Entry<Option<f32>>; 130] = [
     End(None),        //00000000000 or 0000000000100 patterns, slot 129
 ];
 
+/// Decode a motion vector from the bitstream.
+///
+/// This currently only handles standard range motion vectors, not unrestricted
+/// ones.
+fn decode_motion_vector<R>(reader: &mut H263Reader<R>) -> Result<MotionVector>
+where
+    R: Read,
+{
+    reader.with_transaction(|reader| {
+        let x = HalfPel::from(
+            reader
+                .read_vlc(&MVD_TABLE[..])?
+                .ok_or(Error::InvalidBitstream)?,
+        );
+        let y = HalfPel::from(
+            reader
+                .read_vlc(&MVD_TABLE[..])?
+                .ok_or(Error::InvalidBitstream)?,
+        );
+
+        Ok((x, y).into())
+    })
+}
+
+/// Decode a macroblock header from the bitstream referenced by `reader`.
+///
+/// The `running_options` should be the set of currently in-force options
+/// present on the currently-decoded picture. This is not entirely equivalent
+/// to the current picture's option set as some options can carry forward from
+/// picture to picture without being explicitly mentioned.
 fn decode_macroblock_header<R>(
     reader: &mut H263Reader<R>,
     picture: &Picture,
-) -> Result<Option<Macroblock>>
+    running_options: PictureOption,
+) -> Result<Macroblock>
 where
     R: Read,
 {
@@ -425,8 +457,8 @@ where
                 _ => return Err(Error::UnimplementedDecoding),
             };
 
-            let (mbt, chroma_b, chroma_r) = match mcbpc {
-                BlockPatternEntry::Stuffing => return Ok(Some(Macroblock::Stuffing)),
+            let (mb_type, codes_chroma_b, codes_chroma_r) = match mcbpc {
+                BlockPatternEntry::Stuffing => return Ok(Macroblock::Stuffing),
                 BlockPatternEntry::Invalid => return Err(Error::InvalidBitstream),
                 BlockPatternEntry::Valid(mbt, chroma_b, chroma_r) => (mbt, chroma_b, chroma_r),
             };
@@ -437,43 +469,76 @@ where
                 (false, false)
             };
 
+            let codes_luma = if mb_type.is_intra() {
+                match reader.read_vlc(&CBPY_TABLE_INTRA)? {
+                    Some(v) => v,
+                    None => return Err(Error::InvalidBitstream),
+                }
+            } else {
+                match reader.read_vlc(&CBPY_TABLE_INTRA)? {
+                    Some([v1, v2, v3, v4]) => [!v1, !v2, !v3, !v4],
+                    None => return Err(Error::InvalidBitstream),
+                }
+            };
+
             let coded_block_pattern_b = if has_cbpb {
                 Some(decode_cbpb(reader)?)
             } else {
                 None
             };
 
-            let coded_block_pattern_luma =
-                if matches!(mbt, MacroblockType::Intra) || matches!(mbt, MacroblockType::IntraQ) {
-                    match reader.read_vlc(&CBPY_TABLE_INTRA)? {
-                        Some(v) => v,
-                        None => return Err(Error::InvalidBitstream),
-                    }
-                } else {
-                    match reader.read_vlc(&CBPY_TABLE_INTRA)? {
-                        Some([v1, v2, v3, v4]) => [!v1, !v2, !v3, !v4],
-                        None => return Err(Error::InvalidBitstream),
-                    }
-                };
-
-            let d_quantizer = if picture
-                .options
-                .contains(PictureOption::ModifiedQuantization)
-            {
+            let d_quantizer = if running_options.contains(PictureOption::ModifiedQuantization) {
                 return Err(Error::UnimplementedDecoding);
-            } else if matches!(mbt, MacroblockType::InterQ)
-                || matches!(mbt, MacroblockType::IntraQ)
-                || matches!(mbt, MacroblockType::Inter4VQ)
-            {
+            } else if mb_type.has_quantizer() {
                 Some(decode_dquant(reader)?)
             } else {
                 None
             };
 
-            //Ok(Some(Macroblock::Coded {}))
-            Err(Error::UnimplementedDecoding)
+            let motion_vector = if mb_type.is_inter() || picture.picture_type.is_any_pbframe() {
+                Some(decode_motion_vector(reader)?)
+            } else {
+                None
+            };
+
+            let addl_motion_vectors = if running_options.contains(PictureOption::AdvancedPrediction)
+                && mb_type.has_fourvec()
+            {
+                let mv2 = decode_motion_vector(reader)?;
+                let mv3 = decode_motion_vector(reader)?;
+                let mv4 = decode_motion_vector(reader)?;
+
+                Some([mv2, mv3, mv4])
+            } else {
+                None
+            };
+
+            let motion_vectors_b = if has_mvdb {
+                let mv1 = decode_motion_vector(reader)?;
+                let mv2 = decode_motion_vector(reader)?;
+                let mv3 = decode_motion_vector(reader)?;
+                let mv4 = decode_motion_vector(reader)?;
+
+                Some([mv1, mv2, mv3, mv4])
+            } else {
+                None
+            };
+
+            Ok(Macroblock::Coded {
+                mb_type,
+                coded_block_pattern: CodedBlockPattern {
+                    codes_luma,
+                    codes_chroma_b,
+                    codes_chroma_r,
+                },
+                coded_block_pattern_b,
+                d_quantizer,
+                motion_vector,
+                addl_motion_vectors,
+                motion_vectors_b,
+            })
         } else {
-            Ok(Some(Macroblock::Uncoded))
+            Ok(Macroblock::Uncoded)
         }
     })
 }

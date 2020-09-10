@@ -185,6 +185,7 @@ bitflags! {
 ///
 /// Certain `PictureTypeCode`s will prohibit the use of particular
 /// `PictureOption`s.
+#[derive(Copy, Clone, Debug)]
 pub enum PictureTypeCode {
     /// A full picture update that can be independently decoded.
     IFrame,
@@ -222,6 +223,13 @@ pub enum PictureTypeCode {
     ///
     /// This picture type is exclusive to Sorenson Spark bitstreams.
     DisposablePFrame,
+}
+
+impl PictureTypeCode {
+    /// Determine if this picture type is either kind of PB frame.
+    pub fn is_any_pbframe(self) -> bool {
+        matches!(self, Self::PBFrame) || matches!(self, Self::ImprovedPBFrame)
+    }
 }
 
 /// ITU-T Recommendation H.263 (01/2005) 5.1.5-5.1.6 `CPFMT`, `EPAR`
@@ -500,10 +508,13 @@ pub enum Macroblock {
         d_quantizer: Option<i8>,
 
         /// ITU-T Recommendation H.263 (01/2005) 5.3.7 `MVD`
-        motion_vector: MotionVector,
+        motion_vector: Option<MotionVector>,
 
         /// ITU-T Recommendation H.263 (01/2005) 5.3.8 `MVD2-4`
         addl_motion_vectors: Option<[MotionVector; 3]>,
+
+        /// ITU-T Recommendation H.263 (01/2005) 5.3.9 `MVDB`
+        motion_vectors_b: Option<[MotionVector; 4]>,
     },
 }
 
@@ -529,6 +540,33 @@ pub enum MacroblockType {
     Inter4VQ,
 }
 
+impl MacroblockType {
+    /// Determine if this is an `INTER` macroblock.
+    pub fn is_inter(self) -> bool {
+        matches!(self, Self::Inter)
+            || matches!(self, Self::InterQ)
+            || matches!(self, Self::Inter4V)
+            || matches!(self, Self::Inter4V)
+    }
+
+    /// Determine if this is an `INTRA` macroblock.
+    pub fn is_intra(self) -> bool {
+        matches!(self, Self::Intra) || matches!(self, Self::IntraQ)
+    }
+
+    /// Determine if this macroblock has four motion vectors.
+    pub fn has_fourvec(self) -> bool {
+        matches!(self, Self::Inter4V) || matches!(self, Self::Inter4VQ)
+    }
+
+    /// Determine if this macroblock has four motion vectors.
+    pub fn has_quantizer(self) -> bool {
+        matches!(self, Self::InterQ)
+            || matches!(self, Self::IntraQ)
+            || matches!(self, Self::Inter4VQ)
+    }
+}
+
 /// ITU-T Recommendation H.263 (01/2005), 5.3.2 `MCBPC`, 5.3.5 `CBPY`
 ///
 /// Coded block pattern bits that indicate which blocks contain frequency
@@ -551,3 +589,9 @@ impl From<f32> for HalfPel {
 
 /// A motion vector consisting of X and Y components.
 pub struct MotionVector(HalfPel, HalfPel);
+
+impl From<(HalfPel, HalfPel)> for MotionVector {
+    fn from(vectors: (HalfPel, HalfPel)) -> Self {
+        Self(vectors.0, vectors.1)
+    }
+}
