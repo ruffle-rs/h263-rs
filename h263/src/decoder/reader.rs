@@ -112,6 +112,10 @@ where
             return Err(Error::InternalDecoderError);
         }
 
+        if bits_needed == 0 {
+            return Ok(T::zero());
+        }
+
         self.ensure_bits(bits_needed)?;
 
         let mut accum = T::zero();
@@ -123,7 +127,11 @@ where
 
             let bits_to_shift_in = min(bits_in_byte, bits_needed);
 
-            accum = (accum << bits_to_shift_in) | (byte >> (8 - bits_to_shift_in)).into();
+            if let Some(rem) = accum.checked_shl(bits_to_shift_in) {
+                accum = rem | (byte >> (8 - bits_to_shift_in)).into();
+            } else {
+                accum = (byte >> (8 - bits_to_shift_in)).into();
+            }
 
             bits_read = 0;
             bits_needed = bits_needed.saturating_sub(bits_to_shift_in);
@@ -471,11 +479,38 @@ mod tests {
         let data = [0xFE, 0x73, 0xF3];
         let mut reader = H263Reader::from_source(&data[..]);
 
+        assert_eq!(0xFE, reader.read_u8().unwrap());
+        assert_eq!(0x73, reader.read_u8().unwrap());
+        assert_eq!(0xF3, reader.read_u8().unwrap());
+    }
+
+    #[test]
+    fn read_u8_unaligned() {
+        let data = [0xFE, 0x73, 0xF3];
+        let mut reader = H263Reader::from_source(&data[..]);
+
         reader.skip_bits(2).unwrap();
 
         assert_eq!(0xF9, reader.read_u8().unwrap());
         assert_eq!(0xCF, reader.read_u8().unwrap());
         reader.read_u8().unwrap_err();
+    }
+
+    #[test]
+    fn read_u16() {
+        let data = [0xFE, 0x73, 0x50, 0xF3];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        assert_eq!(0xFE73, reader.read_bits::<u16>(16).unwrap());
+        assert_eq!(0x50F3, reader.read_bits::<u16>(16).unwrap());
+    }
+
+    #[test]
+    fn read_u32() {
+        let data = [0xFE, 0x73, 0x50, 0xF3];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        assert_eq!(0xFE7350F3, reader.read_bits::<u32>(32).unwrap());
     }
 
     #[test]
