@@ -569,7 +569,7 @@ impl MacroblockType {
         matches!(self, Self::Inter4V) || matches!(self, Self::Inter4VQ)
     }
 
-    /// Determine if this macroblock has four motion vectors.
+    /// Determine if this macroblock has it's own quantizer.
     pub fn has_quantizer(self) -> bool {
         matches!(self, Self::InterQ)
             || matches!(self, Self::IntraQ)
@@ -612,4 +612,67 @@ impl From<(HalfPel, HalfPel)> for MotionVector {
     fn from(vectors: (HalfPel, HalfPel)) -> Self {
         Self(vectors.0, vectors.1)
     }
+}
+
+/// ITU-T Recommendation H.263 (01/2005) 5.4 "Block layer"
+///
+/// A block is the most basic unit of picture coding. It consists of a number
+/// of transform coefficients which are dequantized and then fed into an
+/// inverse cosine transform. It can also be layered on top of existing frame
+/// data, optionally transformed by a motion vector.
+pub struct Block {
+    /// The DC component of the block, if present.
+    pub intradc: Option<IntraDC>,
+
+    /// All remaining block coefficients, stored as `TCOEF` events.
+    pub tcoef: Vec<TCoefficient>,
+}
+
+/// ITU-T Recommendation H.263 (01/2005) 5.4.1 `INTRADC`
+///
+/// The DC coefficient for intra blocks is coded in a somewhat weird way; this
+/// struct handles coding it.
+pub struct IntraDC(u8);
+
+impl IntraDC {
+    /// Convert a fixed-level code u8 into an IntraDC value.
+    ///
+    /// This function yields `None` for values that are not valid FLC values
+    /// as per Table 15/H.263.
+    pub fn from_u8(value: u8) -> Option<Self> {
+        if value == 0 || value == 128 {
+            None
+        } else {
+            Some(IntraDC(value))
+        }
+    }
+
+    /// Retrieve the reconstruction level of the DC component.
+    fn into_reconstruction_level(self) -> u16 {
+        if self.0 == 0xFF {
+            1024
+        } else {
+            (self.0 as u16) << 3
+        }
+    }
+}
+
+/// ITU-T Recommendation H.263 (01/2005) 5.4.2 `TCOEF`
+///
+/// Represents an IDCT coefficient stored in quantized, run-length encoded
+/// format. Trailing zeros are not coded; encoders should refrain from encoding
+/// trailing zeroes and decoders should pad the decompressed block data with
+/// zeroes.
+pub struct TCoefficient {
+    /// Indicates if the `TCOEF` was or is to be encoded using the shorter,
+    /// variable-length code (VLC) for coefficients.
+    ///
+    /// Not all coefficients can be encoded using the VLC.
+    pub is_short: bool,
+
+    /// The number of zero coefficients preceding this one.
+    pub run: u8,
+
+    /// The non-zero value at the end of the current run.
+    pub level: i8,
 }

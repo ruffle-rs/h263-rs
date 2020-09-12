@@ -1,5 +1,6 @@
 //! Decoder functions
 
+mod block;
 mod gob;
 mod macroblock;
 mod picture;
