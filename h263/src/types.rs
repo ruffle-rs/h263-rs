@@ -674,5 +674,8 @@ pub struct TCoefficient {
     pub run: u8,
 
     /// The non-zero value at the end of the current run.
-    pub level: i8,
+    ///
+    /// In H.263 compliant bitstreams, `LEVEL` never exceeds 8 bits. In
+    /// Sorenson Spark version 1 bitstreams, `LEVEL` is either 7 or 11 bits.
+    pub level: i16,
 }

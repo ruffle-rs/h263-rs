@@ -1,8 +1,9 @@
 //! Block decoding
 
 use crate::decoder::reader::H263Reader;
+use crate::decoder::types::DecoderOptions;
 use crate::error::{Error, Result};
-use crate::types::{Block, IntraDC, MacroblockType, PictureOption, TCoefficient};
+use crate::types::{Block, IntraDC, MacroblockType, Picture, PictureOption, TCoefficient};
 use crate::vlc::{Entry, Entry::*};
 use std::io::Read;
 
@@ -662,6 +663,8 @@ const TCOEF_TABLE: [Entry<Option<ShortTCoefficient>>; 207] = [
 /// currently-decoded macroblock.
 fn decode_block<R>(
     reader: &mut H263Reader<R>,
+    decoder_options: DecoderOptions,
+    picture: &Picture,
     running_options: PictureOption,
     macroblock_type: MacroblockType,
 ) -> Result<Block>
@@ -681,16 +684,29 @@ where
 
             let last = match short_tcoef.ok_or(Error::InvalidBitstream)? {
                 EscapeToLong => {
+                    let level_width = if decoder_options
+                        .contains(DecoderOptions::SorensonSparkBitstream)
+                        && picture.version == Some(1)
+                    {
+                        if reader.read_bits::<u8>(1)? == 1 {
+                            11
+                        } else {
+                            7
+                        }
+                    } else {
+                        8
+                    };
+
                     let last = reader.read_bits::<u8>(1)? == 0;
                     let run: u8 = reader.read_bits(6)?;
-                    let level = reader.read_u8()?;
+                    let level = reader.read_signed_bits(level_width)?;
 
                     if level == 0 {
                         return Err(Error::InvalidBitstream);
                     }
 
                     //TODO: Modified Quantization (Annex T)
-                    if level == 0x80 {
+                    if level == i16::MAX << level_width {
                         if running_options.contains(PictureOption::ModifiedQuantization) {
                             return Err(Error::UnimplementedDecoding);
                         } else {
@@ -701,7 +717,7 @@ where
                     tcoef.push(TCoefficient {
                         is_short: false,
                         run,
-                        level: level as i8,
+                        level,
                     });
 
                     last
@@ -712,13 +728,13 @@ where
                         tcoef.push(TCoefficient {
                             is_short: true,
                             run,
-                            level: level as i8,
+                            level: level as i8 as i16,
                         })
                     } else {
                         tcoef.push(TCoefficient {
                             is_short: true,
                             run,
-                            level: -(level as i8),
+                            level: -(level as i8 as i16),
                         })
                     }
 
