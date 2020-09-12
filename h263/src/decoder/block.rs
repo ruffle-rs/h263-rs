@@ -661,12 +661,17 @@ const TCOEF_TABLE: [Entry<Option<ShortTCoefficient>>; 207] = [
 ///
 /// The `macroblock_type` should be the `MacroblockType` recovered from the
 /// currently-decoded macroblock.
+///
+/// `tcoef_present` should be flagged if the particular block being decoded is
+/// flagged in the corresponding macroblock's `CodedBlockPattern` as having
+/// transform coefficients.
 fn decode_block<R>(
     reader: &mut H263Reader<R>,
     decoder_options: DecoderOptions,
     picture: &Picture,
     running_options: PictureOption,
     macroblock_type: MacroblockType,
+    mut tcoef_present: bool,
 ) -> Result<Block>
 where
     R: Read,
@@ -679,10 +684,10 @@ where
         };
 
         let mut tcoef = Vec::new();
-        loop {
+        while tcoef_present {
             let short_tcoef = reader.read_vlc(&TCOEF_TABLE[..])?;
 
-            let last = match short_tcoef.ok_or(Error::InvalidBitstream)? {
+            match short_tcoef.ok_or(Error::InvalidBitstream)? {
                 EscapeToLong => {
                     let level_width = if decoder_options
                         .contains(DecoderOptions::SorensonSparkBitstream)
@@ -697,7 +702,7 @@ where
                         8
                     };
 
-                    let last = reader.read_bits::<u8>(1)? == 0;
+                    let last = reader.read_bits::<u8>(1)? == 1;
                     let run: u8 = reader.read_bits(6)?;
                     let level = reader.read_signed_bits(level_width)?;
 
@@ -720,7 +725,7 @@ where
                         level,
                     });
 
-                    last
+                    tcoef_present = !last;
                 }
                 Run { last, run, level } => {
                     let sign: u8 = reader.read_bits(1)?;
@@ -738,13 +743,9 @@ where
                         })
                     }
 
-                    last
+                    tcoef_present = !last;
                 }
             };
-
-            if last {
-                break;
-            }
         }
 
         Ok(Block { intradc, tcoef })
@@ -753,8 +754,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::decoder::block::{ShortTCoefficient, TCOEF_TABLE};
+    use crate::decoder::block::{decode_block, ShortTCoefficient, TCOEF_TABLE};
     use crate::decoder::reader::H263Reader;
+    use crate::decoder::types::DecoderOptions;
+    use crate::types::{Block, IntraDC, MacroblockType, Picture, PictureTypeCode, TCoefficient};
+    use enumset::EnumSet;
 
     #[test]
     #[allow(clippy::inconsistent_digit_grouping)]
@@ -1695,5 +1699,423 @@ mod tests {
                 level: 1
             })
         );
+    }
+
+    #[test]
+    fn empty_inter_block() {
+        let bitstream = [0];
+        let mut reader = H263Reader::from_source(&bitstream[..]);
+
+        let picture = Picture {
+            version: None,
+            temporal_reference: 0,
+            format: None,
+            options: EnumSet::empty(),
+            has_plusptype: false,
+            has_opptype: false,
+            picture_type: PictureTypeCode::PFrame,
+            motion_vector_range: None,
+            slice_submode: None,
+            scalability_layer: None,
+            reference_picture_selection_mode: None,
+            prediction_reference: None,
+            backchannel_message: None,
+            reference_picture_resampling: None,
+            quantizer: 1,
+            multiplex_bitstream: None,
+            pb_reference: None,
+            pb_quantizer: None,
+            extra: Vec::new(),
+        };
+
+        assert_eq!(
+            Block {
+                intradc: None,
+                tcoef: vec![]
+            },
+            decode_block(
+                &mut reader,
+                EnumSet::empty(),
+                &picture,
+                EnumSet::empty(),
+                MacroblockType::Inter,
+                false
+            )
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn empty_intra_block() {
+        let bitstream = [0x63];
+        let mut reader = H263Reader::from_source(&bitstream[..]);
+
+        let picture = Picture {
+            version: None,
+            temporal_reference: 0,
+            format: None,
+            options: EnumSet::empty(),
+            has_plusptype: false,
+            has_opptype: false,
+            picture_type: PictureTypeCode::IFrame,
+            motion_vector_range: None,
+            slice_submode: None,
+            scalability_layer: None,
+            reference_picture_selection_mode: None,
+            prediction_reference: None,
+            backchannel_message: None,
+            reference_picture_resampling: None,
+            quantizer: 1,
+            multiplex_bitstream: None,
+            pb_reference: None,
+            pb_quantizer: None,
+            extra: Vec::new(),
+        };
+
+        assert_eq!(
+            Block {
+                intradc: IntraDC::from_level(0x318),
+                tcoef: vec![]
+            },
+            decode_block(
+                &mut reader,
+                EnumSet::empty(),
+                &picture,
+                EnumSet::empty(),
+                MacroblockType::Intra,
+                false
+            )
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn long_coded_inter_block() {
+        let bitstream = [0x06, 0x0C, 0x14, 0x1C, 0xC1, 0x00];
+        let mut reader = H263Reader::from_source(&bitstream[..]);
+
+        let picture = Picture {
+            version: None,
+            temporal_reference: 0,
+            format: None,
+            options: EnumSet::empty(),
+            has_plusptype: false,
+            has_opptype: false,
+            picture_type: PictureTypeCode::IFrame,
+            motion_vector_range: None,
+            slice_submode: None,
+            scalability_layer: None,
+            reference_picture_selection_mode: None,
+            prediction_reference: None,
+            backchannel_message: None,
+            reference_picture_resampling: None,
+            quantizer: 1,
+            multiplex_bitstream: None,
+            pb_reference: None,
+            pb_quantizer: None,
+            extra: Vec::new(),
+        };
+
+        assert_eq!(
+            Block {
+                intradc: None,
+                tcoef: vec![
+                    TCoefficient {
+                        is_short: false,
+                        run: 3,
+                        level: 5
+                    },
+                    TCoefficient {
+                        is_short: false,
+                        run: 12,
+                        level: 16
+                    }
+                ]
+            },
+            decode_block(
+                &mut reader,
+                EnumSet::empty(),
+                &picture,
+                EnumSet::empty(),
+                MacroblockType::Inter,
+                true
+            )
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn long_coded_intra_block() {
+        let bitstream = [0x63, 0x06, 0x0C, 0x14, 0x1C, 0xC1, 0x00];
+        let mut reader = H263Reader::from_source(&bitstream[..]);
+
+        let picture = Picture {
+            version: None,
+            temporal_reference: 0,
+            format: None,
+            options: EnumSet::empty(),
+            has_plusptype: false,
+            has_opptype: false,
+            picture_type: PictureTypeCode::IFrame,
+            motion_vector_range: None,
+            slice_submode: None,
+            scalability_layer: None,
+            reference_picture_selection_mode: None,
+            prediction_reference: None,
+            backchannel_message: None,
+            reference_picture_resampling: None,
+            quantizer: 1,
+            multiplex_bitstream: None,
+            pb_reference: None,
+            pb_quantizer: None,
+            extra: Vec::new(),
+        };
+
+        assert_eq!(
+            Block {
+                intradc: IntraDC::from_level(0x318),
+                tcoef: vec![
+                    TCoefficient {
+                        is_short: false,
+                        run: 3,
+                        level: 5
+                    },
+                    TCoefficient {
+                        is_short: false,
+                        run: 12,
+                        level: 16
+                    }
+                ]
+            },
+            decode_block(
+                &mut reader,
+                EnumSet::empty(),
+                &picture,
+                EnumSet::empty(),
+                MacroblockType::Intra,
+                true
+            )
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn short_coded_inter_block() {
+        let bitstream = [0x03, 0x00, 0x14];
+        let mut reader = H263Reader::from_source(&bitstream[..]);
+
+        let picture = Picture {
+            version: None,
+            temporal_reference: 0,
+            format: None,
+            options: EnumSet::empty(),
+            has_plusptype: false,
+            has_opptype: false,
+            picture_type: PictureTypeCode::IFrame,
+            motion_vector_range: None,
+            slice_submode: None,
+            scalability_layer: None,
+            reference_picture_selection_mode: None,
+            prediction_reference: None,
+            backchannel_message: None,
+            reference_picture_resampling: None,
+            quantizer: 1,
+            multiplex_bitstream: None,
+            pb_reference: None,
+            pb_quantizer: None,
+            extra: Vec::new(),
+        };
+
+        assert_eq!(
+            Block {
+                intradc: None,
+                tcoef: vec![
+                    TCoefficient {
+                        is_short: true,
+                        run: 5,
+                        level: 2
+                    },
+                    TCoefficient {
+                        is_short: true,
+                        run: 0,
+                        level: 3
+                    }
+                ]
+            },
+            decode_block(
+                &mut reader,
+                EnumSet::empty(),
+                &picture,
+                EnumSet::empty(),
+                MacroblockType::Inter,
+                true
+            )
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn short_coded_intra_block() {
+        let bitstream = [0x63, 0x03, 0x00, 0x14];
+        let mut reader = H263Reader::from_source(&bitstream[..]);
+
+        let picture = Picture {
+            version: None,
+            temporal_reference: 0,
+            format: None,
+            options: EnumSet::empty(),
+            has_plusptype: false,
+            has_opptype: false,
+            picture_type: PictureTypeCode::IFrame,
+            motion_vector_range: None,
+            slice_submode: None,
+            scalability_layer: None,
+            reference_picture_selection_mode: None,
+            prediction_reference: None,
+            backchannel_message: None,
+            reference_picture_resampling: None,
+            quantizer: 1,
+            multiplex_bitstream: None,
+            pb_reference: None,
+            pb_quantizer: None,
+            extra: Vec::new(),
+        };
+
+        assert_eq!(
+            Block {
+                intradc: IntraDC::from_level(0x318),
+                tcoef: vec![
+                    TCoefficient {
+                        is_short: true,
+                        run: 5,
+                        level: 2
+                    },
+                    TCoefficient {
+                        is_short: true,
+                        run: 0,
+                        level: 3
+                    }
+                ]
+            },
+            decode_block(
+                &mut reader,
+                EnumSet::empty(),
+                &picture,
+                EnumSet::empty(),
+                MacroblockType::Intra,
+                true
+            )
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn sorenson_long_coded_intra_block() {
+        let bitstream = [0x63, 0x06, 0x06, 0x14, 0x1A, 0x61, 0x00];
+        let mut reader = H263Reader::from_source(&bitstream[..]);
+
+        let picture = Picture {
+            version: Some(1),
+            temporal_reference: 0,
+            format: None,
+            options: EnumSet::empty(),
+            has_plusptype: false,
+            has_opptype: false,
+            picture_type: PictureTypeCode::IFrame,
+            motion_vector_range: None,
+            slice_submode: None,
+            scalability_layer: None,
+            reference_picture_selection_mode: None,
+            prediction_reference: None,
+            backchannel_message: None,
+            reference_picture_resampling: None,
+            quantizer: 1,
+            multiplex_bitstream: None,
+            pb_reference: None,
+            pb_quantizer: None,
+            extra: Vec::new(),
+        };
+
+        assert_eq!(
+            Block {
+                intradc: IntraDC::from_level(0x318),
+                tcoef: vec![
+                    TCoefficient {
+                        is_short: false,
+                        run: 3,
+                        level: 5
+                    },
+                    TCoefficient {
+                        is_short: false,
+                        run: 12,
+                        level: 16
+                    }
+                ]
+            },
+            decode_block(
+                &mut reader,
+                DecoderOptions::SorensonSparkBitstream.into(),
+                &picture,
+                EnumSet::empty(),
+                MacroblockType::Intra,
+                true
+            )
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn sorenson_xlong_coded_intra_block() {
+        let bitstream = [0x63, 0x07, 0x06, 0x01, 0x41, 0xE6, 0x01, 0x00];
+        let mut reader = H263Reader::from_source(&bitstream[..]);
+
+        let picture = Picture {
+            version: Some(1),
+            temporal_reference: 0,
+            format: None,
+            options: EnumSet::empty(),
+            has_plusptype: false,
+            has_opptype: false,
+            picture_type: PictureTypeCode::IFrame,
+            motion_vector_range: None,
+            slice_submode: None,
+            scalability_layer: None,
+            reference_picture_selection_mode: None,
+            prediction_reference: None,
+            backchannel_message: None,
+            reference_picture_resampling: None,
+            quantizer: 1,
+            multiplex_bitstream: None,
+            pb_reference: None,
+            pb_quantizer: None,
+            extra: Vec::new(),
+        };
+
+        assert_eq!(
+            Block {
+                intradc: IntraDC::from_level(0x318),
+                tcoef: vec![
+                    TCoefficient {
+                        is_short: false,
+                        run: 3,
+                        level: 5
+                    },
+                    TCoefficient {
+                        is_short: false,
+                        run: 12,
+                        level: 16
+                    }
+                ]
+            },
+            decode_block(
+                &mut reader,
+                DecoderOptions::SorensonSparkBitstream.into(),
+                &picture,
+                EnumSet::empty(),
+                MacroblockType::Intra,
+                true
+            )
+            .unwrap()
+        )
     }
 }

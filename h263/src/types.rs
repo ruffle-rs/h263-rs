@@ -528,6 +528,19 @@ pub enum Macroblock {
     },
 }
 
+impl Macroblock {
+    /// Get the macroblock type of this macroblock.
+    ///
+    /// Returns `None` if this macroblock is uncoded or stuffing.
+    pub fn macroblock_type(&self) -> Option<MacroblockType> {
+        match self {
+            Uncoded => None,
+            Stuffing => None,
+            Self::Coded { mb_type, .. } => Some(*mb_type),
+        }
+    }
+}
+
 /// ITU-T Recommendation H.263 (01/2005), 5.3.2 `MCBPC` (block-type half)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MacroblockType {
@@ -620,6 +633,7 @@ impl From<(HalfPel, HalfPel)> for MotionVector {
 /// of transform coefficients which are dequantized and then fed into an
 /// inverse cosine transform. It can also be layered on top of existing frame
 /// data, optionally transformed by a motion vector.
+#[derive(PartialEq, Eq, Debug)]
 pub struct Block {
     /// The DC component of the block, if present.
     pub intradc: Option<IntraDC>,
@@ -632,6 +646,7 @@ pub struct Block {
 ///
 /// The DC coefficient for intra blocks is coded in a somewhat weird way; this
 /// struct handles coding it.
+#[derive(PartialEq, Eq, Debug)]
 pub struct IntraDC(u8);
 
 impl IntraDC {
@@ -647,8 +662,24 @@ impl IntraDC {
         }
     }
 
+    /// Convert a reconstruction level into an IntraDC value.
+    ///
+    /// This function yields `None` for out-of-range or otherwise
+    /// unrepresentable level constants.
+    pub fn from_level(value: u16) -> Option<Self> {
+        if (value & 0x07) != 0 || value > 2032 || value < 8 {
+            return None;
+        }
+
+        if value == 1024 {
+            return Some(IntraDC(0xFF));
+        }
+
+        Some(IntraDC((value >> 3) as u8))
+    }
+
     /// Retrieve the reconstruction level of the DC component.
-    fn into_reconstruction_level(self) -> u16 {
+    fn into_level(self) -> u16 {
         if self.0 == 0xFF {
             1024
         } else {
@@ -663,6 +694,7 @@ impl IntraDC {
 /// format. Trailing zeros are not coded; encoders should refrain from encoding
 /// trailing zeroes and decoders should pad the decompressed block data with
 /// zeroes.
+#[derive(PartialEq, Eq, Debug)]
 pub struct TCoefficient {
     /// Indicates if the `TCOEF` was or is to be encoded using the shorter,
     /// variable-length code (VLC) for coefficients.
