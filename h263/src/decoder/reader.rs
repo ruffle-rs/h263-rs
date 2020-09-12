@@ -98,13 +98,17 @@ where
     /// bitstream data which matches the binary representation of the type the
     /// struct uses.
     ///
+    /// This always returns an unsigned result, even if you ultimately store it
+    /// in a signed type. You must use `peek_signed_bits` to get a signed
+    /// result.
+    ///
     /// This function does not remove bits from the buffer. Repeated calls to
     /// `peek_bits` return the same bits.
     ///
     /// The `bits_needed` must not exceed the maximum width of the type. Any
     /// attempt to do so will result in an error.
     pub fn peek_bits<T: BitReadable>(&mut self, mut bits_needed: u32) -> Result<T> {
-        if (T::zero().checked_shl(bits_needed)).is_none() {
+        if (T::zero().checked_shl(bits_needed.saturating_sub(1))).is_none() {
             return Err(Error::InternalDecoderError);
         }
 
@@ -148,11 +152,57 @@ where
 
     /// Move an arbitrary number of bits from the stream out into a type.
     ///
+    /// This always returns an unsigned result, even if you ultimately store it
+    /// in a signed type. You must use `read_signed_bits` to get a signed
+    /// result.
+    ///
     /// This function operates similar to `peek_bits`, but the internal buffer
     /// of this reader will be advanced by the same number of bits that have
     /// been returned.
     pub fn read_bits<T: BitReadable>(&mut self, bits_needed: u32) -> Result<T> {
         let r = self.peek_bits(bits_needed)?;
+        self.skip_bits(bits_needed)?;
+
+        Ok(r)
+    }
+
+    /// Copy an arbitrary number of bits from the stream out into a type,
+    /// applying sign extension to the result.
+    ///
+    /// This may be used with signed types directly, or unsigned types that you
+    /// later coerce to the signed equivalent. This function will produce the
+    /// correct result in either case. The latter is necessary for reading an
+    /// `i8`, as Rust does not provide a trait bound that allows coercing a
+    /// `u8` into an `i8`.
+    ///
+    /// All other behaviors of `peek_bits` apply here, save for the additional
+    /// sign extension.
+    pub fn peek_signed_bits<T: BitReadable>(&mut self, bits_needed: u32) -> Result<T> {
+        let val = self.peek_bits(bits_needed)?;
+        let sign_bit: T = val >> (bits_needed - 1);
+
+        if !sign_bit.is_zero() {
+            let sign_extension = (!T::zero()).checked_shl(bits_needed);
+
+            Ok(val | sign_extension.unwrap_or_else(T::zero))
+        } else {
+            Ok(val)
+        }
+    }
+
+    /// Move an arbitrary number of bits from the stream out into a type,
+    /// applying sign extension to the result.
+    ///
+    /// This may be used with signed types directly, or unsigned types that you
+    /// later coerce to the signed equivalent. This function will produce the
+    /// correct result in either case. The latter is necessary for reading an
+    /// `i8`, as Rust does not provide a trait bound that allows coercing a
+    /// `u8` into an `i8`.
+    ///
+    /// All other behaviors of `read_bits` apply here, save for the additional
+    /// sign extension.
+    pub fn read_signed_bits<T: BitReadable>(&mut self, bits_needed: u32) -> Result<T> {
+        let r = self.peek_signed_bits(bits_needed)?;
         self.skip_bits(bits_needed)?;
 
         Ok(r)
@@ -382,6 +432,30 @@ mod tests {
     }
 
     #[test]
+    fn read_signed_bits_with_coercion() {
+        let data = [0xFF, 0x40, 0x72, 0x1C, 0x1F];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        assert_eq!(-1, reader.read_signed_bits::<u8>(3).unwrap() as i8);
+        assert_eq!(-2, reader.read_signed_bits::<u8>(6).unwrap() as i8);
+        assert_eq!(-0x80, reader.read_signed_bits::<u8>(8).unwrap() as i8);
+        assert_eq!(-0xDE3E1, reader.read_signed_bits::<u32>(23).unwrap() as i32);
+        reader.read_bits::<u8>(1).unwrap_err();
+    }
+
+    #[test]
+    fn read_signed_bits_directly() {
+        let data = [0xFF, 0x40, 0x72, 0x1C, 0x1F];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        assert_eq!(-1, reader.read_signed_bits::<i16>(3).unwrap());
+        assert_eq!(-2, reader.read_signed_bits::<i16>(6).unwrap());
+        assert_eq!(-0x80, reader.read_signed_bits::<i16>(8).unwrap());
+        assert_eq!(-0xDE3E1, reader.read_signed_bits::<i32>(23).unwrap());
+        reader.read_bits::<u8>(1).unwrap_err();
+    }
+
+    #[test]
     fn peek_bits() {
         let data = [0xFF, 0x72, 0x1C, 0x1F];
         let mut reader = H263Reader::from_source(&data[..]);
@@ -390,6 +464,18 @@ mod tests {
         assert_eq!(0x3F, reader.peek_bits(6).unwrap());
         assert_eq!(0x7FB90E, reader.peek_bits(23).unwrap());
         reader.peek_bits::<u64>(64).unwrap_err();
+    }
+
+    #[test]
+    fn read_u8() {
+        let data = [0xFE, 0x73, 0xF3];
+        let mut reader = H263Reader::from_source(&data[..]);
+
+        reader.skip_bits(2).unwrap();
+
+        assert_eq!(0xF9, reader.read_u8().unwrap());
+        assert_eq!(0xCF, reader.read_u8().unwrap());
+        reader.read_u8().unwrap_err();
     }
 
     #[test]

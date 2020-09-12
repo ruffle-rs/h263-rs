@@ -2,7 +2,7 @@
 
 use num_traits::{CheckedShl, CheckedShr, One, Zero};
 use std::cmp::Eq;
-use std::ops::{BitAnd, BitOr};
+use std::ops::{BitAnd, BitOr, Not};
 
 pub trait BitReadable:
     Copy
@@ -10,6 +10,7 @@ pub trait BitReadable:
     + CheckedShr
     + BitOr<Self, Output = Self>
     + BitAnd<Self, Output = Self>
+    + Not<Output = Self>
     + Eq
     + Zero
     + One
@@ -23,6 +24,7 @@ impl<T> BitReadable for T where
         + CheckedShr
         + BitOr<Self, Output = Self>
         + BitAnd<Self, Output = Self>
+        + Not<Output = Self>
         + Eq
         + Zero
         + One
