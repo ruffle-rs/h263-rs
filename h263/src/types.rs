@@ -534,8 +534,8 @@ impl Macroblock {
     /// Returns `None` if this macroblock is uncoded or stuffing.
     pub fn macroblock_type(&self) -> Option<MacroblockType> {
         match self {
-            Uncoded => None,
-            Stuffing => None,
+            Self::Uncoded => None,
+            Self::Stuffing => None,
             Self::Coded { mb_type, .. } => Some(*mb_type),
         }
     }

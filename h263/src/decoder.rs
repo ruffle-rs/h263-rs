@@ -1,8 +1,5 @@
-//! Decoder functions
+//! H.263 video decoder.
 
-mod block;
-mod gob;
-mod macroblock;
-mod picture;
-mod reader;
 mod types;
+
+pub use types::DecoderOption;

@@ -1,8 +1,8 @@
 //! Picture-layer decoder
 
-use crate::decoder::reader::H263Reader;
-use crate::decoder::types::DecoderOptions;
+use crate::decoder::DecoderOption;
 use crate::error::{Error, Result};
+use crate::parser::reader::H263Reader;
 use crate::types::{
     BPictureQuantizer, BackchannelMessage, CustomPictureClock, CustomPictureFormat,
     MotionVectorRange, Picture, PictureOption, PictureTypeCode, PixelAspectRatio,
@@ -136,7 +136,7 @@ lazy_static! {
 /// enabled options in the case where the `PLUSPTYPE` does not change them.
 fn decode_plusptype<R>(
     reader: &mut H263Reader<R>,
-    decoder_options: DecoderOptions,
+    decoder_options: DecoderOption,
     previous_picture_options: PictureOption,
 ) -> Result<PlusPType>
 where
@@ -224,7 +224,7 @@ where
                 options |= PictureOption::ModifiedQuantization;
             }
 
-            if decoder_options.contains(DecoderOptions::UseScalabilityMode) {
+            if decoder_options.contains(DecoderOption::UseScalabilityMode) {
                 followers |= PlusPTypeFollower::HasReferenceLayerNumber;
             }
         } else {
@@ -538,7 +538,7 @@ fn decode_rprp<R>(reader: &mut H263Reader<R>) -> Result<Option<ReferencePictureR
 where
     R: Read,
 {
-    reader.with_transaction(|reader| Err(Error::UnimplementedDecoding))
+    reader.with_transaction(|_reader| Err(Error::UnimplementedDecoding))
 }
 
 /// Attempts to read `TRB` from the bitstream.
@@ -605,9 +605,9 @@ where
 /// `previous_picture_options` is the set of options that were enabled by the
 /// last decoded picture. If this is the first decoded picture in the
 /// bitstream, then this should be an empty set.
-fn decode_picture<R>(
+pub fn decode_picture<R>(
     reader: &mut H263Reader<R>,
-    decoder_options: DecoderOptions,
+    decoder_options: DecoderOption,
     previous_picture: Option<&Picture>,
 ) -> Result<Option<Picture>>
 where
@@ -616,7 +616,7 @@ where
     reader.with_transaction_union(|reader| {
         // Sorenson Spark pictures abuse the final bits of the start code as a
         // version field.
-        if decoder_options.contains(DecoderOptions::SorensonSparkBitstream) {
+        if decoder_options.contains(DecoderOption::SorensonSparkBitstream) {
             if !reader.recognize_start_code(0x00001, 17)? {
                 return Ok(None);
             } else {
@@ -726,7 +726,7 @@ where
             None
         };
 
-        let scalability_layer = if decoder_options.contains(DecoderOptions::UseScalabilityMode) {
+        let scalability_layer = if decoder_options.contains(DecoderOption::UseScalabilityMode) {
             Some(decode_elnum_rlnum(reader, followers)?)
         } else {
             None

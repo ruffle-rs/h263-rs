@@ -1,8 +1,8 @@
 //! Group-of-blocks
 
-use crate::decoder::reader::H263Reader;
-use crate::decoder::types::DecoderOptions;
+use crate::decoder::DecoderOption;
 use crate::error::{Error, Result};
+use crate::parser::reader::H263Reader;
 use crate::types::GroupOfBlocks;
 use std::io::Read;
 
@@ -18,9 +18,9 @@ use std::io::Read;
 /// itself.
 ///
 /// TODO: GOB decoding is a stub (and likely will always be so)
-fn decode_gob<R>(
+pub fn decode_gob<R>(
     reader: &mut H263Reader<R>,
-    _decoder_options: DecoderOptions,
+    _decoder_options: DecoderOption,
 ) -> Result<Option<GroupOfBlocks>>
 where
     R: Read,

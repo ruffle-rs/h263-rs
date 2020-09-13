@@ -2,7 +2,7 @@
 
 bitflags! {
     /// Options which influence the decoding of a bitstream.
-    pub struct DecoderOptions : u8 {
+    pub struct DecoderOption : u8 {
         /// Attempt to decode the video as a Sorenson Spark bitstream.
         ///
         /// Sorenson Spark is a modified H.263 video format notably used in early

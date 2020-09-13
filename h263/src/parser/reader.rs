@@ -1,9 +1,9 @@
 //! Internal reader adapter for reading H.263 bitstreams.
 
 use crate::error::{Error, Result};
+use crate::parser::vlc::{Entry, Table};
 use crate::traits::BitReadable;
 use crate::types::HalfPel;
-use crate::vlc::{Entry, Table};
 use std::cmp::min;
 use std::collections::VecDeque;
 use std::io::Read;
@@ -426,7 +426,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::decoder::reader::H263Reader;
+    use crate::parser::reader::H263Reader;
 
     #[test]
     fn read_unaligned_bits() {
