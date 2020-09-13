@@ -8,10 +8,10 @@ use std::io::Read;
 
 /// Attempts to read a GOB record from an H.263 bitstream.
 ///
-/// If no valid picture record could be found at the current position in the
-/// reader's bitstream, this function returns `None` and leaves the reader at
-/// the same position. Otherwise, it returns the GOB record data, up to the
-/// start of the first macroblock in the stream.
+/// If no valid start code could be found in the bitstream, this function will
+/// raise an error. If it is currently at the start of a picture instead of a
+/// GOB, then it will yield `None`, signalling that the current data should
+/// be parsed as a picture.
 ///
 /// The set of `DecoderOptions` allows configuring certain information about
 /// the decoding process that cannot be determined by decoding the bitstream
@@ -26,7 +26,14 @@ where
     R: Read,
 {
     reader.with_transaction_union(|reader| {
-        if !reader.recognize_start_code(0x00001, 17)? {
+        let skipped_bits = reader
+            .recognize_start_code(false)?
+            .ok_or(Error::InvalidBitstream)?;
+
+        reader.skip_bits(17 + skipped_bits)?;
+
+        let gob_id = reader.read_bits::<u8>(5)?;
+        if gob_id == 0 {
             return Ok(None);
         }
 

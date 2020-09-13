@@ -593,10 +593,10 @@ where
 
 /// Attempts to read a picture record from an H.263 bitstream.
 ///
-/// If no valid picture record could be found at the current position in the
-/// reader's bitstream, this function returns `None` and leaves the reader at
-/// the same position. Otherwise, it returns the picture layer data, with the
-/// reader at the start of the GOB/slice layer data.
+/// If no valid start code could be found in the bitstream, this function will
+/// raise an error. If it is currently at the start of a GOB instead of a
+/// Picture, then it will yield `None`, signalling that the current data should
+/// be parsed as a GOB.
 ///
 /// The set of `DecoderOptions` allows configuring certain information about
 /// the decoding process that cannot be determined by decoding the bitstream
@@ -614,45 +614,47 @@ where
     R: Read,
 {
     reader.with_transaction_union(|reader| {
-        // Sorenson Spark pictures abuse the final bits of the start code as a
-        // version field.
+        let skipped_bits = reader
+            .recognize_start_code(false)?
+            .ok_or(Error::InvalidBitstream)?;
+
+        reader.skip_bits(17 + skipped_bits)?;
+
+        let gob_id = reader.read_bits(5)?;
+
         if decoder_options.contains(DecoderOption::SorensonSparkBitstream) {
-            if !reader.recognize_start_code(0x00001, 17)? {
-                return Ok(None);
-            } else {
-                let version = Some(reader.read_bits(5)?);
-                let temporal_reference = reader.read_u8()? as u16;
-                let (source_format, picture_type, options) = decode_sorenson_ptype(reader)?;
-                let quantizer: u8 = reader.read_bits(5)?;
-                let extra = decode_pei(reader)?;
+            let temporal_reference = reader.read_u8()? as u16;
+            let (source_format, picture_type, options) = decode_sorenson_ptype(reader)?;
+            let quantizer: u8 = reader.read_bits(5)?;
+            let extra = decode_pei(reader)?;
 
-                return Ok(Some(Picture {
-                    version,
-                    temporal_reference,
-                    format: Some(source_format),
-                    options,
-                    has_plusptype: false,
-                    has_opptype: false,
-                    picture_type,
-                    quantizer,
-                    extra,
+            return Ok(Some(Picture {
+                //Sorenson abuses the GOB ID as a version field.
+                version: Some(gob_id),
+                temporal_reference,
+                format: Some(source_format),
+                options,
+                has_plusptype: false,
+                has_opptype: false,
+                picture_type,
+                quantizer,
+                extra,
 
-                    //Sorenson is always unlimited
-                    motion_vector_range: Some(MotionVectorRange::Unlimited),
+                //Sorenson is always unlimited
+                motion_vector_range: Some(MotionVectorRange::Unlimited),
 
-                    //Here's a bunch more modes Sorenson doesn't use.
-                    slice_submode: None,
-                    scalability_layer: None,
-                    reference_picture_selection_mode: None,
-                    prediction_reference: None,
-                    backchannel_message: None,
-                    reference_picture_resampling: None,
-                    multiplex_bitstream: None,
-                    pb_reference: None,
-                    pb_quantizer: None,
-                }));
-            }
-        } else if !reader.recognize_start_code(0x000020, 22)? {
+                //Here's a bunch more modes Sorenson doesn't use.
+                slice_submode: None,
+                scalability_layer: None,
+                reference_picture_selection_mode: None,
+                prediction_reference: None,
+                backchannel_message: None,
+                reference_picture_resampling: None,
+                multiplex_bitstream: None,
+                pb_reference: None,
+                pb_quantizer: None,
+            }));
+        } else if gob_id != 0 {
             return Ok(None);
         }
 
