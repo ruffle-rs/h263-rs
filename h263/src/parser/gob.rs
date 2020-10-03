@@ -33,7 +33,7 @@ where
         reader.skip_bits(17 + skipped_bits)?;
 
         let gob_id = reader.read_bits::<u8>(5)?;
-        if gob_id == 0 {
+        if gob_id == 0 || gob_id == 15 {
             return Ok(None);
         }
 
