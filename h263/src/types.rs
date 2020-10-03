@@ -128,7 +128,7 @@ pub struct Picture {
 /// Most other `SourceFormat` variants are multiples of the CIF picture count.
 /// Note that the multiples refer to total pixel count; i.e. a `FourCIF` format
 /// image is twice the width and height of a `FullCIF` format image.
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum SourceFormat {
     /// 128x96 @ 30000/1001hz
     SubQCIF,
@@ -150,6 +150,30 @@ pub enum SourceFormat {
 
     /// A custom source format.
     Extended(CustomPictureFormat),
+}
+
+impl SourceFormat {
+    /// Determine the source format's pixel width and height.
+    ///
+    /// Please note that these only determine the size of internal buffers
+    /// necessary for decoding the picture. The actual shape of the user's
+    /// presented video is determined by both this aspect ratio and the pixel
+    /// aspect ratio of this source format.
+    ///
+    /// This function returns `None` if the source format is `Reserved`.
+    pub fn into_width_and_height(self) -> Option<(u16, u16)> {
+        match self {
+            Self::SubQCIF => Some((128, 96)),
+            Self::QuarterCIF => Some((176, 144)),
+            Self::FullCIF => Some((352, 288)),
+            Self::FourCIF => Some((704, 576)),
+            Self::SixteenCIF => Some((1408, 1152)),
+            Self::Reserved => None,
+            Self::Extended(cpf) => {
+                Some((cpf.picture_width_indication, cpf.picture_height_indication))
+            }
+        }
+    }
 }
 
 bitflags! {
@@ -186,6 +210,29 @@ bitflags! {
         /// This flag is only set by Sorenson Spark bitstreams.
         const UseDeblocker = 0b10000000000000000;
     }
+}
+
+lazy_static! {
+    /// The set of options only present in the `OPPTYPE` portion of the picture
+    /// header.
+    pub static ref OPPTYPE_OPTIONS: PictureOption =
+        PictureOption::UnrestrictedMotionVectors
+            | PictureOption::SyntaxBasedArithmeticCoding
+            | PictureOption::AdvancedPrediction
+            | PictureOption::AdvancedIntraCoding
+            | PictureOption::DeblockingFilter
+            | PictureOption::SliceStructured
+            | PictureOption::ReferencePictureSelection
+            | PictureOption::IndependentSegmentDecoding
+            | PictureOption::AlternativeInterVLC
+            | PictureOption::ModifiedQuantization;
+
+    /// The set of options only present in the `MPPTYPE` portion of the picture
+    /// header.
+    pub static ref MPPTYPE_OPTIONS: PictureOption =
+        PictureOption::ReferencePictureResampling
+            | PictureOption::ReducedResolutionUpdate
+            | PictureOption::RoundingTypeOne;
 }
 
 /// All available picture types in H.263.
@@ -245,7 +292,7 @@ impl PictureTypeCode {
 /// ITU-T Recommendation H.263 (01/2005) 5.1.5-5.1.6 `CPFMT`, `EPAR`
 ///
 /// This defines a "custom" picture format, outside of the standard CIF options.
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct CustomPictureFormat {
     /// The aspect ratio of a single pixel.
     pub pixel_aspect_ratio: PixelAspectRatio,
@@ -272,7 +319,7 @@ pub struct CustomPictureFormat {
 /// Most modern video formats should be `Square`. Legacy analog formats may be
 /// stored in one of the `ParNN_NN` formats. A custom PAR may be indicated with
 /// the `Extended` option.
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum PixelAspectRatio {
     /// 1:1 pixel aspect ratio. Most common on modern displays.
     Square,

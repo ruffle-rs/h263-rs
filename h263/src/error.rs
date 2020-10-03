@@ -11,6 +11,9 @@ pub enum Error {
     #[error("the H.263 bitstream could not be decoded")]
     InvalidBitstream,
 
+    #[error("the decoded H.263 bitstream does not make sense")]
+    InvalidSemantics,
+
     #[error("an I/O error occured: {0}")]
     UnhandledIoError(IoError),
 
