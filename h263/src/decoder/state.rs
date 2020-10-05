@@ -1,11 +1,13 @@
 //! H.263 decoder core
 
+use crate::decoder::cpu::mvd_pred;
 use crate::decoder::picture::DecodedPicture;
 use crate::decoder::types::DecoderOption;
 use crate::error::{Error, Result};
 use crate::parser::{decode_block, decode_gob, decode_macroblock, decode_picture, H263Reader};
 use crate::types::{
-    GroupOfBlocks, Macroblock, PictureOption, PictureTypeCode, MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
+    GroupOfBlocks, HalfPel, Macroblock, MotionVector, PictureOption, PictureTypeCode,
+    MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
 };
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -108,6 +110,13 @@ impl H263State {
             let next_decoded_picture =
                 DecodedPicture::new(next_picture, format).ok_or(Error::InvalidSemantics)?;
             let mut in_force_quantizer = next_decoded_picture.as_header().quantizer;
+            let mut predictor_vectors = Vec::new(); // all previously decoded MVDs
+            let mb_per_line = next_decoded_picture
+                .format()
+                .into_width_and_height()
+                .unwrap()
+                .0 as usize
+                / 16;
 
             loop {
                 match decode_macroblock(
@@ -123,6 +132,8 @@ impl H263State {
                         ) {
                             return Err(Error::InvalidSemantics);
                         }
+
+                        predictor_vectors.push(MotionVector::zero())
                     }
                     Ok(Macroblock::Coded {
                         mb_type,
@@ -140,6 +151,20 @@ impl H263State {
                             ),
                             31,
                         );
+
+                        let motion_vector = if mb_type.is_intra() {
+                            MotionVector::zero()
+                        } else {
+                            //TODO: Motion vectors are not just added to the predictor.
+                            //Instead, they can be added or subtracted around the restriction
+                            //range, and whichever pair is within the range is the actual
+                            //motion vector for this MB
+                            let candidate_pred = mvd_pred(&predictor_vectors, mb_per_line);
+                            motion_vector.unwrap_or_else(MotionVector::zero) + candidate_pred
+                        };
+
+                        predictor_vectors.push(motion_vector);
+
                         let luma0 = decode_block(
                             reader,
                             self.decoder_options,
@@ -199,6 +224,7 @@ impl H263State {
                                 quantizer,
                             }) => {
                                 in_force_quantizer = quantizer;
+                                predictor_vectors = Vec::new();
                             }
                         }
                     } //search for next GOB?

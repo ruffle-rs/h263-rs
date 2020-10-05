@@ -1,5 +1,7 @@
 //! Parsed H.263 bitstream types
 
+use std::ops::{Add, Div};
+
 /// ITU-T Recommendation H.263 (01/2005) 5.1.2-5.1.4 `TR`, `PTYPE`, `PLUSPTYPE`
 /// and 5.1.8 `ETR`.
 ///
@@ -649,6 +651,7 @@ pub struct CodedBlockPattern {
 }
 
 /// Half-pixel motion vector components.
+#[derive(Copy, Clone)]
 pub struct HalfPel(i16);
 
 impl From<f32> for HalfPel {
@@ -663,14 +666,57 @@ impl HalfPel {
     pub fn from_unit(unit: i16) -> Self {
         HalfPel(unit)
     }
+
+    pub fn zero() -> Self {
+        Self(0)
+    }
+}
+
+impl Add<HalfPel> for HalfPel {
+    type Output = HalfPel;
+
+    fn add(self, rhs: Self) -> Self {
+        HalfPel(self.0 + rhs.0)
+    }
+}
+
+impl Div<i16> for HalfPel {
+    type Output = HalfPel;
+
+    fn div(self, rhs: i16) -> Self {
+        HalfPel(self.0 / rhs)
+    }
 }
 
 /// A motion vector consisting of X and Y components.
+#[derive(Copy, Clone)]
 pub struct MotionVector(HalfPel, HalfPel);
+
+impl MotionVector {
+    pub fn zero() -> Self {
+        Self(HalfPel::zero(), HalfPel::zero())
+    }
+}
 
 impl From<(HalfPel, HalfPel)> for MotionVector {
     fn from(vectors: (HalfPel, HalfPel)) -> Self {
         Self(vectors.0, vectors.1)
+    }
+}
+
+impl Add<MotionVector> for MotionVector {
+    type Output = MotionVector;
+
+    fn add(self, rhs: Self) -> Self {
+        MotionVector(self.0 + rhs.0, self.1 + rhs.1)
+    }
+}
+
+impl Div<i16> for MotionVector {
+    type Output = MotionVector;
+
+    fn div(self, rhs: i16) -> Self {
+        MotionVector(self.0 / rhs, self.1 / rhs)
     }
 }
 
