@@ -161,6 +161,7 @@ impl H263State {
                             //motion vector for this MB
                             let candidate_pred = predict_candidate(&predictor_vectors, mb_per_line);
                             mv_decode(
+                                &next_decoded_picture,
                                 next_running_options,
                                 candidate_pred,
                                 motion_vector.unwrap_or_else(MotionVector::zero),

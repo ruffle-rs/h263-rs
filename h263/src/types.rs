@@ -1,6 +1,7 @@
 //! Parsed H.263 bitstream types
 
-use std::ops::{Add, Div};
+use std::cmp::Ordering;
+use std::ops::{Add, Div, Neg};
 
 /// ITU-T Recommendation H.263 (01/2005) 5.1.2-5.1.4 `TR`, `PTYPE`, `PLUSPTYPE`
 /// and 5.1.8 `ETR`.
@@ -44,7 +45,7 @@ pub struct Picture {
     /// The intra-prediction mode in use, if any.
     pub picture_type: PictureTypeCode,
 
-    /// Exactly *how* unlimited our unlimited motion vectors are.
+    /// Specifies the limits on motion vectors.
     ///
     /// Must be specified if and only if the `PictureOption` called
     /// `UnlimitedMotionVectors` is also enabled.
@@ -374,7 +375,11 @@ pub struct CustomPictureClock {
 /// Indicates the new motion vector range limitations when
 /// `UnrestrictedMotionVectors` are enabled.
 pub enum MotionVectorRange {
-    Standard,
+    /// Motion vector component ranges are extended to limits that are
+    /// prescribed in ITU-T Recommendation H.263 (01/2005) D.1 and D.2.
+    Extended,
+
+    /// Motion vector component ranges are only limited by the picture size.
     Unlimited,
 }
 
@@ -661,6 +666,12 @@ impl From<f32> for HalfPel {
 }
 
 impl HalfPel {
+    pub const STANDARD_RANGE: Self = Self(32);
+    pub const EXTENDED_RANGE: Self = Self(64);
+    pub const EXTENDED_RANGE_QUADCIF: Self = Self(128);
+    pub const EXTENDED_RANGE_SIXTEENCIF: Self = Self(256);
+    pub const EXTENDED_RANGE_BEYONDCIF: Self = Self(512);
+
     /// Construct a half-pel from some value that already contains half-pel
     /// units.
     pub fn from_unit(unit: i16) -> Self {
@@ -671,20 +682,27 @@ impl HalfPel {
         Self(0)
     }
 
-    /// Invert the half-pel around the restricted MVD component range.
+    /// Invert the HalfPel around the restricted MVD component range.
+    ///
+    /// For example, given a HalfPel decoded from the Vector column of H.263
+    /// (2005/01) table 14, this gives you the equivalent entry from the
+    /// Differences column of that table.
     pub fn invert(self) -> Self {
-        if self.0 > 0 {
-            Self(self.0 - 64)
-        } else if self.0 < 0 {
-            Self(self.0 + 64)
-        } else {
-            self
+        match self.0.cmp(&0) {
+            Ordering::Greater => Self(self.0 - 64),
+            Ordering::Less => Self(self.0 + 64),
+            Ordering::Equal => self,
         }
     }
 
     /// Determine if the half-pel is within the restricted MVD component range.
-    pub fn is_within_mvd_range(self) -> bool {
-        self.0.abs() < 64
+    pub fn is_mv_within_range(self, range: HalfPel) -> bool {
+        -range.0 <= self.0 && self.0 < range.0
+    }
+
+    /// Determine if the half-pel is within the restricted MVD component range.
+    pub fn is_predictor_within_range(self, range: HalfPel) -> bool {
+        -range.0 < self.0 && self.0 <= range.0
     }
 }
 
@@ -701,6 +719,14 @@ impl Div<i16> for HalfPel {
 
     fn div(self, rhs: i16) -> Self {
         HalfPel(self.0 / rhs)
+    }
+}
+
+impl Neg for HalfPel {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
     }
 }
 

@@ -411,7 +411,7 @@ where
     reader.with_transaction(|reader| {
         let is_limited: u8 = reader.read_bits(1)?;
         if is_limited == 1 {
-            return Ok(MotionVectorRange::Standard);
+            return Ok(MotionVectorRange::Extended);
         }
 
         let is_unlimited: u8 = reader.read_bits(1)?;
