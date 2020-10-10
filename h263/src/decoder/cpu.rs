@@ -4,4 +4,4 @@ mod idct;
 mod mvd_pred;
 mod rle;
 
-pub use mvd_pred::mvd_pred;
+pub use mvd_pred::{mv_decode, predict_candidate};

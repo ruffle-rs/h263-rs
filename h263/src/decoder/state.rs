@@ -1,13 +1,13 @@
 //! H.263 decoder core
 
-use crate::decoder::cpu::mvd_pred;
+use crate::decoder::cpu::{mv_decode, predict_candidate};
 use crate::decoder::picture::DecodedPicture;
 use crate::decoder::types::DecoderOption;
 use crate::error::{Error, Result};
 use crate::parser::{decode_block, decode_gob, decode_macroblock, decode_picture, H263Reader};
 use crate::types::{
-    GroupOfBlocks, HalfPel, Macroblock, MotionVector, PictureOption, PictureTypeCode,
-    MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
+    GroupOfBlocks, Macroblock, MotionVector, PictureOption, PictureTypeCode, MPPTYPE_OPTIONS,
+    OPPTYPE_OPTIONS,
 };
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -159,8 +159,12 @@ impl H263State {
                             //Instead, they can be added or subtracted around the restriction
                             //range, and whichever pair is within the range is the actual
                             //motion vector for this MB
-                            let candidate_pred = mvd_pred(&predictor_vectors, mb_per_line);
-                            motion_vector.unwrap_or_else(MotionVector::zero) + candidate_pred
+                            let candidate_pred = predict_candidate(&predictor_vectors, mb_per_line);
+                            mv_decode(
+                                next_running_options,
+                                candidate_pred,
+                                motion_vector.unwrap_or_else(MotionVector::zero),
+                            )
                         };
 
                         predictor_vectors.push(motion_vector);

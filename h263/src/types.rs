@@ -661,14 +661,30 @@ impl From<f32> for HalfPel {
 }
 
 impl HalfPel {
-    // Construct a half-pel from some value that already contains half-pel
-    // units.
+    /// Construct a half-pel from some value that already contains half-pel
+    /// units.
     pub fn from_unit(unit: i16) -> Self {
         HalfPel(unit)
     }
 
     pub fn zero() -> Self {
         Self(0)
+    }
+
+    /// Invert the half-pel around the restricted MVD component range.
+    pub fn invert(self) -> Self {
+        if self.0 > 0 {
+            Self(self.0 - 64)
+        } else if self.0 < 0 {
+            Self(self.0 + 64)
+        } else {
+            self
+        }
+    }
+
+    /// Determine if the half-pel is within the restricted MVD component range.
+    pub fn is_within_mvd_range(self) -> bool {
+        self.0.abs() < 64
     }
 }
 
@@ -701,6 +717,12 @@ impl MotionVector {
 impl From<(HalfPel, HalfPel)> for MotionVector {
     fn from(vectors: (HalfPel, HalfPel)) -> Self {
         Self(vectors.0, vectors.1)
+    }
+}
+
+impl Into<(HalfPel, HalfPel)> for MotionVector {
+    fn into(self) -> (HalfPel, HalfPel) {
+        (self.0, self.1)
     }
 }
 

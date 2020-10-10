@@ -1,9 +1,10 @@
 //! Motion vector differential predictor
 
-use crate::types::MotionVector;
+use crate::types::{MotionVector, PictureOption};
 
-/// Predict a motion vector.
-pub fn mvd_pred(predictor_vectors: &[MotionVector], mb_per_line: usize) -> MotionVector {
+/// Produce a candidate motion vector predictor from the current set of decoded
+/// motion vectors.
+pub fn predict_candidate(predictor_vectors: &[MotionVector], mb_per_line: usize) -> MotionVector {
     let current_mb = predictor_vectors.len().saturating_sub(0);
     let col_index = current_mb % mb_per_line;
     let mv1_pred = if col_index == 0 {
@@ -30,4 +31,27 @@ pub fn mvd_pred(predictor_vectors: &[MotionVector], mb_per_line: usize) -> Motio
     };
 
     (mv1_pred + mv2_pred + mv3_pred) / 3
+}
+
+/// Given an encoded motion vector and it's predictor, produce the decoded,
+/// ready-to-use motion vector.
+pub fn mv_decode(
+    in_force_options: PictureOption,
+    predictor: MotionVector,
+    mvd: MotionVector,
+) -> MotionVector {
+    let (mvx, mvy) = mvd.into();
+    let (cpx, cpy) = predictor.into();
+
+    let mut out_x = mvx + cpx;
+    if !out_x.is_within_mvd_range() {
+        out_x = mvx + cpx.invert();
+    }
+
+    let mut out_y = mvy + cpy;
+    if !out_y.is_within_mvd_range() {
+        out_y = mvy + cpy.invert();
+    }
+
+    (out_x, out_y).into()
 }
