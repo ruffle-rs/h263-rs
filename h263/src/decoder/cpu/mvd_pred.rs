@@ -1,34 +1,84 @@
 //! Motion vector differential predictor
+//!
+//! This module covers functions relating to decoding motion vectors that have
+//! been encoded as a series of differences from one or more predictors within
+//! the current picture. Actual motion compensation happens in the gather step,
+//! which is defined in the `gather` module.
 
 use crate::decoder::picture::DecodedPicture;
 use crate::types::{HalfPel, MotionVector, MotionVectorRange, PictureOption};
 
-/// Produce a candidate motion vector predictor from the current set of decoded
-/// motion vectors.
-pub fn predict_candidate(predictor_vectors: &[MotionVector], mb_per_line: usize) -> MotionVector {
+/// Produce a candidate motion vector predictor for a single block within a
+/// given macroblock.
+///
+/// `current_predictors` is the set of already-decoded motion vectors for the
+/// given block. You must decode all motion vectors within a block in the order
+/// 0, 1, 2, and 3; any other order will result in incorrect results. This
+/// means that vector decoding should be a process akin to:
+///
+/// 1. Predict the nth vector's candidate with `current_predictors`
+/// 2. Decode the nth vector
+/// 3. Store the nth vector in `current_predictors`
+/// 4. Continue step 1 with n+1, stopping at the fourth motion vector
+///
+/// The `index` parameter indicates which of the four motion vectors within the
+/// current block we are generating a candidate predictor for. This affects the
+/// predictor sources.
+pub fn predict_candidate(
+    predictor_vectors: &[[MotionVector; 4]],
+    current_predictors: &[MotionVector; 4],
+    mb_per_line: usize,
+    index: usize,
+) -> MotionVector {
     let current_mb = predictor_vectors.len().saturating_sub(0);
     let col_index = current_mb % mb_per_line;
     let mv1_pred = if col_index == 0 {
         MotionVector::zero()
     } else {
-        *predictor_vectors.get(current_mb as usize - 1).unwrap()
+        match index {
+            0 => predictor_vectors[current_mb as usize - 1][1],
+            1 => current_predictors[0],
+            2 => predictor_vectors[current_mb as usize - 1][3],
+            3 => current_predictors[2],
+            _ => unreachable!(),
+        }
     };
 
     let line_index = current_mb / mb_per_line;
-    let mv2_pred = if line_index == 0 {
+    let mv2_pred = if line_index == 0 && index < 2 {
         mv1_pred
     } else {
         let last_line_mb = (line_index - 1) * mb_per_line + col_index;
-        *predictor_vectors.get(last_line_mb).unwrap_or(&mv1_pred)
+
+        match index {
+            0 => predictor_vectors
+                .get(last_line_mb)
+                .map(|mb| mb[2])
+                .unwrap_or(mv1_pred),
+            1 => predictor_vectors
+                .get(last_line_mb)
+                .map(|mb| mb[3])
+                .unwrap_or(mv1_pred),
+            2 | 3 => current_predictors[0],
+            _ => unreachable!(),
+        }
     };
 
-    let mv3_pred = if col_index == mb_per_line - 1 {
+    let mv3_pred = if col_index == mb_per_line - 1 && index < 2 {
         MotionVector::zero()
-    } else if line_index == 0 {
+    } else if line_index == 0 && index < 2 {
         mv1_pred
     } else {
         let last_line_mb = (line_index - 1) * mb_per_line + col_index + 1;
-        *predictor_vectors.get(last_line_mb).unwrap_or(&mv1_pred)
+
+        match index {
+            0 | 1 => predictor_vectors
+                .get(last_line_mb)
+                .map(|mb| mb[2])
+                .unwrap_or(mv1_pred),
+            2 | 3 => current_predictors[1],
+            _ => unreachable!(),
+        }
     };
 
     (mv1_pred + mv2_pred + mv3_pred) / 3

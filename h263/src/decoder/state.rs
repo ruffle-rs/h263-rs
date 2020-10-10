@@ -133,7 +133,7 @@ impl H263State {
                             return Err(Error::InvalidSemantics);
                         }
 
-                        predictor_vectors.push(MotionVector::zero())
+                        predictor_vectors.push([MotionVector::zero(); 4])
                     }
                     Ok(Macroblock::Coded {
                         mb_type,
@@ -152,23 +152,63 @@ impl H263State {
                             31,
                         );
 
-                        let motion_vector = if mb_type.is_intra() {
-                            MotionVector::zero()
-                        } else {
-                            //TODO: Motion vectors are not just added to the predictor.
-                            //Instead, they can be added or subtracted around the restriction
-                            //range, and whichever pair is within the range is the actual
-                            //motion vector for this MB
-                            let candidate_pred = predict_candidate(&predictor_vectors, mb_per_line);
-                            mv_decode(
+                        let mut motion_vectors = [MotionVector::zero(); 4];
+
+                        if mb_type.is_inter() {
+                            motion_vectors[0] = mv_decode(
                                 &next_decoded_picture,
                                 next_running_options,
-                                candidate_pred,
+                                predict_candidate(
+                                    &predictor_vectors[..],
+                                    &motion_vectors,
+                                    mb_per_line,
+                                    0,
+                                ),
                                 motion_vector.unwrap_or_else(MotionVector::zero),
-                            )
+                            );
+
+                            if let Some([mv2, mv3, mv4]) = addl_motion_vectors {
+                                motion_vectors[1] = mv_decode(
+                                    &next_decoded_picture,
+                                    next_running_options,
+                                    predict_candidate(
+                                        &predictor_vectors[..],
+                                        &motion_vectors,
+                                        mb_per_line,
+                                        1,
+                                    ),
+                                    mv2,
+                                );
+                                motion_vectors[2] = mv_decode(
+                                    &next_decoded_picture,
+                                    next_running_options,
+                                    predict_candidate(
+                                        &predictor_vectors[..],
+                                        &motion_vectors,
+                                        mb_per_line,
+                                        2,
+                                    ),
+                                    mv3,
+                                );
+                                motion_vectors[3] = mv_decode(
+                                    &next_decoded_picture,
+                                    next_running_options,
+                                    predict_candidate(
+                                        &predictor_vectors[..],
+                                        &motion_vectors,
+                                        mb_per_line,
+                                        3,
+                                    ),
+                                    mv4,
+                                );
+                            } else {
+                                motion_vectors[1] = motion_vectors[0];
+                                motion_vectors[2] = motion_vectors[0];
+                                motion_vectors[3] = motion_vectors[0];
+                            }
                         };
 
-                        predictor_vectors.push(motion_vector);
+                        predictor_vectors.push(motion_vectors);
 
                         let luma0 = decode_block(
                             reader,
