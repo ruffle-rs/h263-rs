@@ -1,5 +1,6 @@
 //! Decoder primitives implemented on the CPU
 
+mod gather;
 mod idct;
 mod mvd_pred;
 mod rle;

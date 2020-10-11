@@ -49,8 +49,23 @@ impl DecodedPicture {
         &self.picture_header
     }
 
-    /// Get the source format
+    /// Get the source format.
     pub fn format(&self) -> SourceFormat {
         self.format
+    }
+
+    /// Get the luma data for this picture.
+    pub fn as_luma(&self) -> &[u8] {
+        &self.luma
+    }
+
+    /// Get the chroma-B data for this picture.
+    pub fn as_chroma_b(&self) -> &[u8] {
+        &self.chroma_b
+    }
+
+    /// Get the chroma-R data for this picture.
+    pub fn as_chroma_r(&self) -> &[u8] {
+        &self.chroma_r
     }
 }

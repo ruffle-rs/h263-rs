@@ -682,6 +682,15 @@ impl HalfPel {
         Self(0)
     }
 
+    /// Separate the half-pixel into a whole part and a fractional part.
+    pub fn into_whole_and_fractional(self) -> (i16, f32) {
+        if self.0 % 2 == 0 {
+            (self.0 / 2, 0.0)
+        } else {
+            (self.0 / 2, 0.5)
+        }
+    }
+
     /// Invert the HalfPel around the restricted MVD component range.
     ///
     /// For example, given a HalfPel decoded from the Vector column of H.263
@@ -703,6 +712,22 @@ impl HalfPel {
     /// Determine if the half-pel is within the restricted MVD component range.
     pub fn is_predictor_within_range(self, range: HalfPel) -> bool {
         -range.0 < self.0 && self.0 <= range.0
+    }
+
+    /// Given the sum of four motion vectors, divide by eight and round to the
+    /// nearest full pixel.
+    ///
+    /// It is expected that this `HalfPel` is actually the sum of four motion
+    /// vectors.
+    pub fn average_sum_of_mvs(self) -> Self {
+        let whole = (self.0 >> 4) << 1; // div 8
+        let frac = self.0 & 0x0F;
+
+        match frac {
+            0 | 1 | 2 => Self(whole),
+            14 | 15 => Self(whole + 2),
+            _ => Self(whole + 1),
+        }
     }
 }
 
@@ -737,6 +762,17 @@ pub struct MotionVector(HalfPel, HalfPel);
 impl MotionVector {
     pub fn zero() -> Self {
         Self(HalfPel::zero(), HalfPel::zero())
+    }
+
+    pub fn into_whole_and_fractional(self) -> ((i16, f32), (i16, f32)) {
+        (
+            self.0.into_whole_and_fractional(),
+            self.1.into_whole_and_fractional(),
+        )
+    }
+
+    pub fn average_sum_of_mvs(self) -> Self {
+        Self(self.0.average_sum_of_mvs(), self.1.average_sum_of_mvs())
     }
 }
 
