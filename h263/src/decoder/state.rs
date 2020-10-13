@@ -1,6 +1,6 @@
 //! H.263 decoder core
 
-use crate::decoder::cpu::{mv_decode, predict_candidate};
+use crate::decoder::cpu::{gather, idct_block, inverse_rle, mv_decode, predict_candidate};
 use crate::decoder::picture::DecodedPicture;
 use crate::decoder::types::DecoderOption;
 use crate::error::{Error, Result};
@@ -111,6 +111,7 @@ impl H263State {
                 DecodedPicture::new(next_picture, format).ok_or(Error::InvalidSemantics)?;
             let mut in_force_quantizer = next_decoded_picture.as_header().quantizer;
             let mut predictor_vectors = Vec::new(); // all previously decoded MVDs
+            let mut encountered_macroblocks = 0;
             let mb_per_line = next_decoded_picture
                 .format()
                 .into_width_and_height()
@@ -133,16 +134,20 @@ impl H263State {
                             return Err(Error::InvalidSemantics);
                         }
 
-                        predictor_vectors.push([MotionVector::zero(); 4])
+                        //TODO: copy pixel data as if this was an INTER block
+                        //with no new IDCT energy
+
+                        predictor_vectors.push([MotionVector::zero(); 4]);
+                        encountered_macroblocks += 1;
                     }
                     Ok(Macroblock::Coded {
                         mb_type,
                         coded_block_pattern,
-                        coded_block_pattern_b,
+                        coded_block_pattern_b: _coded_block_pattern_b,
                         d_quantizer,
                         motion_vector,
                         addl_motion_vectors,
-                        motion_vectors_b,
+                        motion_vectors_b: _motion_vectors_b,
                     }) => {
                         let quantizer = min(
                             max(
@@ -210,6 +215,14 @@ impl H263State {
 
                         predictor_vectors.push(motion_vectors);
 
+                        let pos = (
+                            encountered_macroblocks % mb_per_line as u16,
+                            encountered_macroblocks / mb_per_line as u16,
+                        );
+                        let mut macroblock =
+                            gather(mb_type, &next_decoded_picture, pos, motion_vectors);
+                        let mut levels = [0; 64];
+
                         let luma0 = decode_block(
                             reader,
                             self.decoder_options,
@@ -218,6 +231,9 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[0],
                         )?;
+                        inverse_rle(&luma0, &mut levels, quantizer);
+                        idct_block(&levels, macroblock.luma_mut(0));
+
                         let luma1 = decode_block(
                             reader,
                             self.decoder_options,
@@ -226,6 +242,9 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[1],
                         )?;
+                        inverse_rle(&luma1, &mut levels, quantizer);
+                        idct_block(&levels, macroblock.luma_mut(1));
+
                         let luma2 = decode_block(
                             reader,
                             self.decoder_options,
@@ -234,6 +253,9 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[2],
                         )?;
+                        inverse_rle(&luma2, &mut levels, quantizer);
+                        idct_block(&levels, macroblock.luma_mut(2));
+
                         let luma3 = decode_block(
                             reader,
                             self.decoder_options,
@@ -242,6 +264,9 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[3],
                         )?;
+                        inverse_rle(&luma3, &mut levels, quantizer);
+                        idct_block(&levels, macroblock.luma_mut(3));
+
                         let chroma_b = decode_block(
                             reader,
                             self.decoder_options,
@@ -250,6 +275,9 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_chroma_b,
                         )?;
+                        inverse_rle(&chroma_b, &mut levels, quantizer);
+                        idct_block(&levels, macroblock.chroma_b_mut());
+
                         let chroma_r = decode_block(
                             reader,
                             self.decoder_options,
@@ -258,6 +286,8 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_chroma_r,
                         )?;
+                        inverse_rle(&chroma_r, &mut levels, quantizer);
+                        idct_block(&levels, macroblock.chroma_r_mut());
                     }
                     Err(Error::InvalidBitstream) => {
                         match decode_gob(reader, self.decoder_options)? {
