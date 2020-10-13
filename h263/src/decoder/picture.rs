@@ -59,6 +59,18 @@ impl DecodedPicture {
         &self.luma
     }
 
+    /// Get how many luma samples exist per row.
+    pub fn luma_samples_per_row(&self) -> usize {
+        let (w, _h) = self.format().into_width_and_height().unwrap();
+        w as usize
+    }
+
+    /// Get how many chroma samples exist per row.
+    pub fn chroma_samples_per_row(&self) -> usize {
+        let (w, _h) = self.format().into_width_and_height().unwrap();
+        w as usize / 2
+    }
+
     /// Get the chroma-B data for this picture.
     pub fn as_chroma_b(&self) -> &[u8] {
         &self.chroma_b

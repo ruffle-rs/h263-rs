@@ -83,11 +83,7 @@ pub fn gather(
     let mut dmb = DecodedMacroblock::new();
 
     if mb_type.is_inter() {
-        let luma_samples_per_row = reference_picture
-            .format()
-            .into_width_and_height()
-            .unwrap()
-            .0 as usize;
+        let luma_samples_per_row = reference_picture.luma_samples_per_row();
 
         gather_block(
             reference_picture.as_luma(),
@@ -119,7 +115,7 @@ pub fn gather(
         );
 
         let mv_chr = (mv[0] + mv[1] + mv[2] + mv[3]).average_sum_of_mvs();
-        let chroma_samples_per_row = luma_samples_per_row / 2;
+        let chroma_samples_per_row = reference_picture.chroma_samples_per_row();
 
         gather_block(
             reference_picture.as_chroma_b(),
