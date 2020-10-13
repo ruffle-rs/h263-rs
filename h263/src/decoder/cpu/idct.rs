@@ -1,5 +1,6 @@
 //! Inverse discrete cosine transform
 
+use std::cmp::{max, min};
 use std::f32::consts::PI;
 
 /// Given an IDCT block, transform it to the frequency domain.
@@ -8,10 +9,12 @@ use std::f32::consts::PI;
 /// decompressed, dezigzagged transform coefficients in row-major (x*8 + y)
 /// order.
 ///
-/// The output of this IDCT is represented as an 8x8 block of `i16`s, also in
-/// row-major order, which can optionally be added to a previous frame's
-/// prediction data before it is clipped to the range of a `u8`.
-pub fn idct_block(block_levels: &[i16; 64], output: &mut [i16; 64]) {
+/// The output of this IDCT is represented as an 8x8 block of `u8`s, also in
+/// row-major order. If this is an INTER block and reconstruction data exists
+/// from the motion compensation / `gather` step, you should provide it here so
+/// that the result of the IDCT is added to it here. Otherwise, you should
+/// provide an array of zeroes.
+pub fn idct_block(block_levels: &[i16; 64], output: &mut [u8; 64]) {
     for x in 0..8 {
         for y in 0..8 {
             let mut sum = 0.0;
@@ -32,7 +35,10 @@ pub fn idct_block(block_levels: &[i16; 64], output: &mut [i16; 64]) {
                 sum += cu * cv * *coeff as f32 * cosx * cosy;
             }
 
-            output[x * 8 + y] = sum as i16;
+            let clipped_sum = min(255, max(-256, sum as i16));
+            let mocomp_pixel = output[x * 8 + y] as u16 as i16;
+
+            output[x * 8 + y] = min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
         }
     }
 }
