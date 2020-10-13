@@ -1,6 +1,7 @@
 //! Block run decompression
 
-use crate::types::TCoefficient;
+use crate::types::Block;
+use std::cmp::{max, min};
 
 const DEZIGZAG_MAPPING: [(u8, u8); 64] = [
     (0, 0),
@@ -69,23 +70,29 @@ const DEZIGZAG_MAPPING: [(u8, u8); 64] = [
     (7, 7),
 ];
 
-/// Inverse and un-zig-zag the run-length encoding on a block.
+/// Inverse RLE, dezigzag, and dequantize encoded block coefficient data.
 ///
 /// `tcoefs` should be the list of run-length encoded coefficients. `levels`
 /// will be filled with a row-major (x*8 + y) decompressed list of
 /// coefficients.
-fn inverse_rle(tcoefs: &[TCoefficient], levels: &mut [i16; 64]) {
+pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
     let mut zigzag_index = 1;
 
-    for tcoef in tcoefs {
+    levels[0] = encoded_block.intradc.map(|l| l.into_level()).unwrap_or(0);
+
+    for tcoef in encoded_block.tcoef.iter() {
         for _ in 0..tcoef.run {
             if zigzag_index > DEZIGZAG_MAPPING.len() {
                 return;
             }
 
             let (x, y) = DEZIGZAG_MAPPING[zigzag_index];
+            let i = (x as usize * 8) + y as usize;
+            if i > levels.len() {
+                break;
+            }
 
-            levels[(x as usize * 8) + y as usize] = 0;
+            levels[i] = 0;
             zigzag_index += 1;
         }
 
@@ -94,8 +101,28 @@ fn inverse_rle(tcoefs: &[TCoefficient], levels: &mut [i16; 64]) {
         }
 
         let (x, y) = DEZIGZAG_MAPPING[zigzag_index];
+        let i = (x as usize * 8) + y as usize;
+        if i > levels.len() {
+            break;
+        }
 
-        levels[(x as usize * 8) + y as usize] = tcoef.level;
+        levels[i] = if quant % 2 == 1 {
+            min(
+                2047,
+                max(
+                    -2048,
+                    tcoef.level.signum() * (quant * (2 * tcoef.level + 1)),
+                ),
+            )
+        } else {
+            min(
+                2047,
+                max(
+                    -2048,
+                    tcoef.level.signum() * (quant * (2 * tcoef.level + 1) - 1),
+                ),
+            )
+        };
         zigzag_index += 1;
     }
 }

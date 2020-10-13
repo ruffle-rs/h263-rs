@@ -823,7 +823,7 @@ pub struct Block {
 ///
 /// The DC coefficient for intra blocks is coded in a somewhat weird way; this
 /// struct handles coding it.
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct IntraDC(u8);
 
 impl IntraDC {
@@ -856,11 +856,11 @@ impl IntraDC {
     }
 
     /// Retrieve the reconstruction level of the DC component.
-    fn into_level(self) -> u16 {
+    pub fn into_level(self) -> i16 {
         if self.0 == 0xFF {
             1024
         } else {
-            (self.0 as u16) << 3
+            (self.0 as u16 as i16) << 3
         }
     }
 }
