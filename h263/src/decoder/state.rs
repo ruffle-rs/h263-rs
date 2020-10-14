@@ -1,6 +1,6 @@
 //! H.263 decoder core
 
-use crate::decoder::cpu::{gather, idct_block, inverse_rle, mv_decode, predict_candidate};
+use crate::decoder::cpu::{gather, idct_block, inverse_rle, mv_decode, predict_candidate, scatter};
 use crate::decoder::picture::DecodedPicture;
 use crate::decoder::types::DecoderOption;
 use crate::error::{Error, Result};
@@ -107,7 +107,7 @@ impl H263State {
                 return Err(Error::InvalidSemantics);
             };
 
-            let next_decoded_picture =
+            let mut next_decoded_picture =
                 DecodedPicture::new(next_picture, format).ok_or(Error::InvalidSemantics)?;
             let mut in_force_quantizer = next_decoded_picture.as_header().quantizer;
             let mut predictor_vectors = Vec::new(); // all previously decoded MVDs
@@ -288,6 +288,8 @@ impl H263State {
                         )?;
                         inverse_rle(&chroma_r, &mut levels, quantizer);
                         idct_block(&levels, macroblock.chroma_r_mut());
+
+                        scatter(&mut next_decoded_picture, macroblock, pos);
                     }
                     Err(Error::InvalidBitstream) => {
                         match decode_gob(reader, self.decoder_options)? {

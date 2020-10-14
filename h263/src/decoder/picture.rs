@@ -59,6 +59,11 @@ impl DecodedPicture {
         &self.luma
     }
 
+    /// Mutably borrow the luma data for this picture.
+    pub fn as_luma_mut(&mut self) -> &mut [u8] {
+        &mut self.luma
+    }
+
     /// Get how many luma samples exist per row.
     pub fn luma_samples_per_row(&self) -> usize {
         let (w, _h) = self.format().into_width_and_height().unwrap();
@@ -76,8 +81,18 @@ impl DecodedPicture {
         &self.chroma_b
     }
 
+    /// Mutably borrow the chroma-B data for this picture.
+    pub fn as_chroma_b_mut(&mut self) -> &mut [u8] {
+        &mut self.chroma_b
+    }
+
     /// Get the chroma-R data for this picture.
     pub fn as_chroma_r(&self) -> &[u8] {
         &self.chroma_r
+    }
+
+    /// Mutably borrow the chroma-R data for this picture.
+    pub fn as_chroma_r_mut(&mut self) -> &mut [u8] {
+        &mut self.chroma_r
     }
 }

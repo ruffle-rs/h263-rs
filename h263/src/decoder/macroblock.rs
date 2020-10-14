@@ -19,12 +19,24 @@ impl DecodedMacroblock {
         }
     }
 
+    pub fn as_luma(&self, index: usize) -> &[u8; 64] {
+        &self.luma[index]
+    }
+
     pub fn luma_mut(&mut self, index: usize) -> &mut [u8; 64] {
         &mut self.luma[index]
     }
 
+    pub fn as_chroma_b(&self) -> &[u8; 64] {
+        &self.chroma_b
+    }
+
     pub fn chroma_b_mut(&mut self) -> &mut [u8; 64] {
         &mut self.chroma_b
+    }
+
+    pub fn as_chroma_r(&self) -> &[u8; 64] {
+        &self.chroma_r
     }
 
     pub fn chroma_r_mut(&mut self) -> &mut [u8; 64] {
