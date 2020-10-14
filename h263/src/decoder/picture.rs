@@ -55,11 +55,19 @@ impl DecodedPicture {
     }
 
     /// Get the luma data for this picture.
+    ///
+    /// Raw luma data is stored in row-major (x + y*samples_per_row) order with
+    /// 8 bits per pixel. The width of the array is given with
+    /// `luma_samples_per_row` and you index the array with the above formula.
     pub fn as_luma(&self) -> &[u8] {
         &self.luma
     }
 
     /// Mutably borrow the luma data for this picture.
+    ///
+    /// Raw luma data is stored in row-major (x + y*samples_per_row) order with
+    /// 8 bits per pixel. The width of the array is given with
+    /// `luma_samples_per_row` and you index the array with the above formula.
     pub fn as_luma_mut(&mut self) -> &mut [u8] {
         &mut self.luma
     }
@@ -77,21 +85,41 @@ impl DecodedPicture {
     }
 
     /// Get the chroma-B data for this picture.
+    ///
+    /// Raw chroma data is stored in row-major (x + y*samples_per_row) order
+    /// with 8 bits per pixel. The width of the array is given with
+    /// `chroma_samples_per_row` and you index the array with the above
+    /// formula. Each chroma pixel corresponds to four luma pixels.
     pub fn as_chroma_b(&self) -> &[u8] {
         &self.chroma_b
     }
 
     /// Mutably borrow the chroma-B data for this picture.
+    ///
+    /// Raw chroma data is stored in row-major (x + y*samples_per_row) order
+    /// with 8 bits per pixel. The width of the array is given with
+    /// `chroma_samples_per_row` and you index the array with the above
+    /// formula. Each chroma pixel corresponds to four luma pixels.
     pub fn as_chroma_b_mut(&mut self) -> &mut [u8] {
         &mut self.chroma_b
     }
 
     /// Get the chroma-R data for this picture.
+    ///
+    /// Raw chroma data is stored in row-major (x + y*samples_per_row) order
+    /// with 8 bits per pixel. The width of the array is given with
+    /// `chroma_samples_per_row` and you index the array with the above
+    /// formula. Each chroma pixel corresponds to four luma pixels.
     pub fn as_chroma_r(&self) -> &[u8] {
         &self.chroma_r
     }
 
     /// Mutably borrow the chroma-R data for this picture.
+    ///
+    /// Raw chroma data is stored in row-major (x + y*samples_per_row) order
+    /// with 8 bits per pixel. The width of the array is given with
+    /// `chroma_samples_per_row` and you index the array with the above
+    /// formula. Each chroma pixel corresponds to four luma pixels.
     pub fn as_chroma_r_mut(&mut self) -> &mut [u8] {
         &mut self.chroma_r
     }

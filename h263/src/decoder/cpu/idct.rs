@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 /// Given an IDCT block, transform it to the frequency domain.
 ///
 /// The input of this function, `block_levels`, is an 8x8 block of
-/// decompressed, dezigzagged transform coefficients in row-major (x*8 + y)
+/// decompressed, dezigzagged transform coefficients in row-major (x + y*8)
 /// order.
 ///
 /// The output of this IDCT is represented as an 8x8 block of `u8`s, also in
@@ -36,9 +36,9 @@ pub fn idct_block(block_levels: &[i16; 64], output: &mut [u8; 64]) {
             }
 
             let clipped_sum = min(255, max(-256, sum as i16));
-            let mocomp_pixel = output[x * 8 + y] as u16 as i16;
+            let mocomp_pixel = output[x + y * 8] as u16 as i16;
 
-            output[x * 8 + y] = min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
+            output[x + y * 8] = min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
         }
     }
 }

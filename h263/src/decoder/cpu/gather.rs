@@ -5,6 +5,15 @@ use crate::decoder::picture::DecodedPicture;
 use crate::error::Error;
 use crate::types::{MacroblockType, MotionVector};
 
+/// Read a sample from the pixel array at a given position.
+///
+/// Sample coordinates in `pos` will be clipped to the bounds of the pixel
+/// data. This is in accordance with H.263 (2005/01) D.1, which states that
+/// motion vectors that cross picture boundaries instead clip the last row,
+/// column, or individual pixel off the edge of the picture. (This is
+/// equivalent to, say OpenGL `GL_CLAMP_TO_EDGE` behavior.)
+///
+/// Pixel array data is read as a row-major (x + y*width) array.
 fn read_sample(pixel_array: &[u8], samples_per_row: usize, pos: (isize, isize)) -> u8 {
     let (x, y) = pos;
 
@@ -27,7 +36,7 @@ fn read_sample(pixel_array: &[u8], samples_per_row: usize, pos: (isize, isize)) 
     };
 
     pixel_array
-        .get(x * samples_per_row + y)
+        .get(x + y * samples_per_row)
         .copied()
         .unwrap_or(0)
 }
@@ -39,6 +48,9 @@ fn lerp(sample_a: u8, sample_b: u8, amount_b: f32) -> u8 {
 
 /// Copy pixel data from a pixel array, motion-compensate it, and fill a block
 /// with the given data.
+///
+/// Target block and source pixel array are written to in row-major (x + y*8)
+/// order.
 fn gather_block(
     pixel_array: &[u8],
     samples_per_row: usize,
@@ -61,7 +73,7 @@ fn gather_block(
             let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
             let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
 
-            target[i * 8 + j] = lerp(sample_mid_0, sample_mid_1, y_interp);
+            target[i + j * 8] = lerp(sample_mid_0, sample_mid_1, y_interp);
         }
     }
 }

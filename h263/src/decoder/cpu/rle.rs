@@ -73,7 +73,7 @@ const DEZIGZAG_MAPPING: [(u8, u8); 64] = [
 /// Inverse RLE, dezigzag, and dequantize encoded block coefficient data.
 ///
 /// `tcoefs` should be the list of run-length encoded coefficients. `levels`
-/// will be filled with a row-major (x*8 + y) decompressed list of
+/// will be filled with a row-major (x + y*8) decompressed list of
 /// coefficients.
 pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
     let mut zigzag_index = 1;
@@ -87,7 +87,7 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
             }
 
             let (x, y) = DEZIGZAG_MAPPING[zigzag_index];
-            let i = (x as usize * 8) + y as usize;
+            let i = x as usize + (y as usize * 8);
             if i > levels.len() {
                 break;
             }
@@ -101,7 +101,7 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
         }
 
         let (x, y) = DEZIGZAG_MAPPING[zigzag_index];
-        let i = (x as usize * 8) + y as usize;
+        let i = x as usize + (y as usize * 8);
         if i > levels.len() {
             break;
         }

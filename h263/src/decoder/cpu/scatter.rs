@@ -4,6 +4,9 @@ use crate::decoder::macroblock::DecodedMacroblock;
 use crate::decoder::picture::DecodedPicture;
 
 /// Scatter an individual block into a pixel data array.
+///
+/// Pixel data and block data are assumed to be in row-major (x + y*width)
+/// order.
 fn scatter_block(
     pixel_data: &mut [u8],
     samples_per_row: usize,
@@ -13,8 +16,8 @@ fn scatter_block(
     for (u, x) in (pos.0 as usize..pos.0 as usize + 8).enumerate() {
         for (v, y) in (pos.1 as usize..pos.1 as usize + 8).enumerate() {
             if x < samples_per_row {
-                if let Some(pixel) = pixel_data.get_mut(x * samples_per_row + y) {
-                    *pixel = block_data[x * 8 + y];
+                if let Some(pixel) = pixel_data.get_mut(x + y * samples_per_row) {
+                    *pixel = block_data[u + v * 8];
                 }
             }
         }
