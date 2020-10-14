@@ -25,7 +25,7 @@ pub struct H263State {
     running_options: PictureOption,
 
     /// All previously-encoded reference pictures.
-    reference_picture: HashMap<u16, Option<DecodedPicture>>,
+    reference_picture: HashMap<u16, DecodedPicture>,
 }
 
 impl H263State {
@@ -46,7 +46,7 @@ impl H263State {
         if self.last_picture == 0xFFFF {
             None
         } else {
-            self.reference_picture.get(&self.last_picture)?.as_ref()
+            self.reference_picture.get(&self.last_picture)
         }
     }
 
@@ -106,6 +106,10 @@ impl H263State {
             } else {
                 return Err(Error::InvalidSemantics);
             };
+
+            //TODO: Exactly what IS the reference picture? Is it just the last
+            //one?
+            let reference_picture = self.get_last_picture();
 
             let mut next_decoded_picture =
                 DecodedPicture::new(next_picture, format).ok_or(Error::InvalidSemantics)?;
@@ -220,7 +224,7 @@ impl H263State {
                             encountered_macroblocks / mb_per_line as u16,
                         );
                         let mut macroblock =
-                            gather(mb_type, &next_decoded_picture, pos, motion_vectors);
+                            gather(mb_type, reference_picture, pos, motion_vectors)?;
                         let mut levels = [0; 64];
 
                         let luma0 = decode_block(
@@ -323,7 +327,7 @@ impl H263State {
 
             self.last_picture = next_decoded_picture.as_header().temporal_reference;
             self.reference_picture
-                .insert(self.last_picture, Some(next_decoded_picture));
+                .insert(self.last_picture, next_decoded_picture);
 
             Ok(())
         })

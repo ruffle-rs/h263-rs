@@ -2,6 +2,7 @@
 
 use crate::decoder::macroblock::DecodedMacroblock;
 use crate::decoder::picture::DecodedPicture;
+use crate::error::Error;
 use crate::types::{MacroblockType, MotionVector};
 
 fn read_sample(pixel_array: &[u8], samples_per_row: usize, pos: (isize, isize)) -> u8 {
@@ -76,13 +77,14 @@ fn gather_block(
 /// zeroes.
 pub fn gather(
     mb_type: MacroblockType,
-    reference_picture: &DecodedPicture,
+    reference_picture: Option<&DecodedPicture>,
     pos: (u16, u16),
     mv: [MotionVector; 4],
-) -> DecodedMacroblock {
+) -> Result<DecodedMacroblock, Error> {
     let mut dmb = DecodedMacroblock::new();
 
     if mb_type.is_inter() {
+        let reference_picture = reference_picture.ok_or(Error::InvalidSemantics)?;
         let luma_samples_per_row = reference_picture.luma_samples_per_row();
 
         gather_block(
@@ -133,5 +135,5 @@ pub fn gather(
         );
     }
 
-    dmb
+    Ok(dmb)
 }
