@@ -123,4 +123,9 @@ impl DecodedPicture {
     pub fn as_chroma_r_mut(&mut self) -> &mut [u8] {
         &mut self.chroma_r
     }
+
+    /// Borrow the YUV data in this picture.
+    pub fn as_yuv(&self) -> (&[u8], &[u8], &[u8]) {
+        (&self.luma, &self.chroma_b, &self.chroma_r)
+    }
 }
