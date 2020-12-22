@@ -19,7 +19,6 @@ h263-rs is a pure-Rust implementation of ITU-T Recommendation H.263 (2005/08), a
 h263-rs correctly decodes most Sorenson-flavor video streams. No attempt has yet been made to test other flavors of H.263, or any of the additional features in later versions of H.263.
 
 There is currently no support for encoding h.263 video of any flavor.
-
 ## Using h263-rs
 
 Currently, this only ships as a library, which must be integrated in another project to play video.
@@ -31,6 +30,7 @@ Currently, this only ships as a library, which must be integrated in another pro
 ## Structure
 
 - `h263` contains the core codec library
+- `yuv` contains BT.601 YUV colorspace conversions needed for decoding H.263 video
 
 ## Sponsors
 

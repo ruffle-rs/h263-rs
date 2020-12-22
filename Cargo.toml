@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "h263",
+    "yuv",
 ]
 resolver = "2"
 
@@ -15,4 +16,7 @@ panic = "abort"
 panic = "abort"
 
 [profile.dev.package.h263-rs]
+opt-level = 3
+
+[profile.dev.package.h263-rs-yuv]
 opt-level = 3
