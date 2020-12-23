@@ -64,12 +64,31 @@ impl From<IoError> for Error {
 }
 
 impl Error {
-    fn is_eof_error(&self) -> bool {
+    /// Determines if this is an end-of-data error.
+    ///
+    /// EOF errors end the current picture.
+    pub fn is_eof_error(&self) -> bool {
         if let Self::UnhandledIoError(ioe) = self {
             matches!(ioe.kind(), IoErrorKind::UnexpectedEof)
         } else {
             false
         }
+    }
+
+    /// Determines if this is an error caused by macroblock parsing.
+    ///
+    /// Macroblock parsing errors can be recovered from by searching for the
+    /// next group of blocks, if possible.
+    pub fn is_macroblock_error(&self) -> bool {
+        matches!(self, Error::InvalidMacroblockHeader)
+            || matches!(self, Error::InvalidMacroblockCodedBits)
+    }
+
+    /// Determines if this is an error caused by GOB parsing.
+    ///
+    /// GOB parsing errors end the current picture.
+    pub fn is_gob_error(&self) -> bool {
+        matches!(self, Error::InvalidGOBHeader)
     }
 }
 

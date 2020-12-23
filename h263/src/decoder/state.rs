@@ -39,6 +39,12 @@ impl H263State {
         }
     }
 
+    /// Determine if this decoder is in "Sorenson" H.263 mode.
+    pub fn is_sorenson(&self) -> bool {
+        self.decoder_options
+            .contains(DecoderOption::SorensonSparkBitstream)
+    }
+
     /// Get the last picture decoded in the bitstream.
     ///
     /// If `None`, then no pictures have yet to be decoded.
@@ -295,23 +301,32 @@ impl H263State {
 
                         scatter(&mut next_decoded_picture, macroblock, pos);
                     }
-                    Err(ref e)
-                        if matches!(e, Error::InvalidMacroblockHeader)
-                            || matches!(e, Error::InvalidMacroblockCodedBits) =>
-                    {
-                        match decode_gob(reader, self.decoder_options)? {
-                            None => break, //We're at the end of the picture now
-                            Some(GroupOfBlocks {
-                                group_number,
-                                multiplex_bitstream,
-                                frame_id,
+
+                    //Attempt to recover from macroblock errors if possible
+                    Err(ref e) if e.is_macroblock_error() && !self.is_sorenson() => {
+                        match decode_gob(reader, self.decoder_options) {
+                            //Resynchronized to end of picture.
+                            Ok(None) => break,
+
+                            //Resynchronized to end of GOB.
+                            Ok(Some(GroupOfBlocks {
+                                group_number: _group_number,
+                                multiplex_bitstream: _multiplex_bitstream,
+                                frame_id: _frame_id,
                                 quantizer,
-                            }) => {
+                            })) => {
                                 in_force_quantizer = quantizer;
                                 predictor_vectors = Vec::new();
                             }
+
+                            // Treat EOF/GOB errors as end of picture
+                            Err(ref e) if e.is_eof_error() || e.is_gob_error() => break,
+                            Err(e) => return Err(e),
                         }
-                    } //search for next GOB?
+                    }
+
+                    //Treat EOF errors as end of picture
+                    Err(ref e) if e.is_eof_error() => break,
                     Err(e) => return Err(e),
                 }
             }
