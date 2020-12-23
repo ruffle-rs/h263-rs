@@ -82,7 +82,7 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
 
     for tcoef in encoded_block.tcoef.iter() {
         for _ in 0..tcoef.run {
-            if zigzag_index > DEZIGZAG_MAPPING.len() {
+            if zigzag_index >= DEZIGZAG_MAPPING.len() {
                 return;
             }
 
@@ -96,7 +96,7 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
             zigzag_index += 1;
         }
 
-        if zigzag_index > DEZIGZAG_MAPPING.len() {
+        if zigzag_index >= DEZIGZAG_MAPPING.len() {
             return;
         }
 
