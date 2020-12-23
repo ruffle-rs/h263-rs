@@ -339,13 +339,14 @@ where
 
     /// Restore a previously-created checkpoint.
     ///
-    /// Upon restoring a checkpoint, all bits read from this reader will be
+    /// Upon restoring a checkpoint, all bits read from this reader after the
+    /// creation of the checkpoint will be readable again.
     ///
     /// Checkpoints handed to this function must be valid. Specifically, the
     /// internal buffer must not have been cleared (e.g. via `commit`) between
     /// the creation and use of this checkpoint.
     fn rollback(&mut self, checkpoint: usize) -> Result<()> {
-        if checkpoint >= (self.buffer.len() * 8) {
+        if checkpoint > (self.buffer.len() * 8) {
             return Err(Error::InternalDecoderError);
         }
 
