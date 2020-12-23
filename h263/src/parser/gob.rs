@@ -28,7 +28,7 @@ where
     reader.with_transaction_union(|reader| {
         let skipped_bits = reader
             .recognize_start_code(false)?
-            .ok_or(Error::InvalidBitstream)?;
+            .ok_or(Error::InvalidGOBHeader)?;
 
         reader.skip_bits(17 + skipped_bits)?;
 
