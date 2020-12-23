@@ -106,15 +106,19 @@ where
         let bytes_read = self.bits_read / 8;
         let mut bits_read = self.bits_read % 8;
         for byte in self.buffer.iter().skip(bytes_read) {
+            if bits_needed == 0 {
+                break;
+            }
+
             let byte = byte << bits_read;
             let bits_in_byte = (8 as u32).saturating_sub(bits_read as u32);
 
             let bits_to_shift_in = min(bits_in_byte, bits_needed);
 
             if let Some(rem) = accum.checked_shl(bits_to_shift_in) {
-                accum = rem | (byte >> (8 - bits_to_shift_in)).into();
+                accum = rem | byte.checked_shr(8 - bits_to_shift_in).unwrap_or(0).into();
             } else {
-                accum = (byte >> (8 - bits_to_shift_in)).into();
+                accum = byte.checked_shr(8 - bits_to_shift_in).unwrap_or(0).into();
             }
 
             bits_read = 0;
