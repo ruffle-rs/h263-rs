@@ -94,6 +94,9 @@ pub fn gather(
     mv: [MotionVector; 4],
 ) -> Result<DecodedMacroblock, Error> {
     let mut dmb = DecodedMacroblock::new();
+    if mb_type.is_inter() && reference_picture.is_none() {
+        return Ok(dmb);
+    }
 
     if mb_type.is_inter() {
         let reference_picture = reference_picture.ok_or(Error::UncodedIFrameBlocks)?;
