@@ -11,8 +11,14 @@ pub enum Error {
     #[error("the H.263 bitstream could not be decoded")]
     InvalidBitstream,
 
-    #[error("the decoded H.263 bitstream does not make sense")]
-    InvalidSemantics,
+    #[error("the decoded H.263 bitstream is missing it's picture format")]
+    PictureFormatMissing,
+
+    #[error("the decoded H.263 bitstream has an invalid picture format")]
+    PictureFormatInvalid,
+
+    #[error("the decoded H.263 bitstream has uncoded iframe blocks")]
+    UncodedIFrameBlocks,
 
     #[error("an I/O error occured: {0}")]
     UnhandledIoError(IoError),

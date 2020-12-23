@@ -100,11 +100,11 @@ impl H263State {
             let format = if let Some(format) = next_picture.format {
                 format
             } else if matches!(next_picture.picture_type, PictureTypeCode::IFrame) {
-                return Err(Error::InvalidSemantics);
+                return Err(Error::PictureFormatMissing);
             } else if let Some(ref_format) = self.get_last_picture().map(|rp| rp.format()) {
                 ref_format
             } else {
-                return Err(Error::InvalidSemantics);
+                return Err(Error::PictureFormatMissing);
             };
 
             //TODO: Exactly what IS the reference picture? Is it just the last
@@ -112,7 +112,7 @@ impl H263State {
             let reference_picture = self.get_last_picture();
 
             let mut next_decoded_picture =
-                DecodedPicture::new(next_picture, format).ok_or(Error::InvalidSemantics)?;
+                DecodedPicture::new(next_picture, format).ok_or(Error::PictureFormatInvalid)?;
             let mut in_force_quantizer = next_decoded_picture.as_header().quantizer;
             let mut predictor_vectors = Vec::new(); // all previously decoded MVDs
             let mut encountered_macroblocks = 0;
@@ -135,7 +135,7 @@ impl H263State {
                             next_decoded_picture.as_header().picture_type,
                             PictureTypeCode::IFrame
                         ) {
-                            return Err(Error::InvalidSemantics);
+                            return Err(Error::UncodedIFrameBlocks);
                         }
 
                         //TODO: copy pixel data as if this was an INTER block

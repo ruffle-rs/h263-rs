@@ -96,7 +96,7 @@ pub fn gather(
     let mut dmb = DecodedMacroblock::new();
 
     if mb_type.is_inter() {
-        let reference_picture = reference_picture.ok_or(Error::InvalidSemantics)?;
+        let reference_picture = reference_picture.ok_or(Error::UncodedIFrameBlocks)?;
         let luma_samples_per_row = reference_picture.luma_samples_per_row();
 
         gather_block(
