@@ -27,7 +27,7 @@ where
 
         let high_ptype_bits = reader.read_u8()?;
         if high_ptype_bits & 0xC0 != 0x80 {
-            return Err(Error::InvalidBitstream);
+            return Err(Error::InvalidPType);
         }
 
         if high_ptype_bits & 0x20 != 0 {
@@ -43,7 +43,7 @@ where
         }
 
         let source_format = match high_ptype_bits & 0x07 {
-            0 => return Err(Error::InvalidBitstream),
+            0 => return Err(Error::InvalidPType),
             1 => SourceFormat::SubQCIF,
             2 => SourceFormat::QuarterCIF,
             3 => SourceFormat::FullCIF,
@@ -147,7 +147,7 @@ where
         let has_opptype = match ufep {
             0 => false,
             1 => true,
-            _ => return Err(Error::InvalidBitstream),
+            _ => return Err(Error::InvalidPlusPType),
         };
 
         let mut options = PictureOption::empty();
@@ -159,7 +159,7 @@ where
 
             // OPPTYPE should end in bits 1000 as per H.263 5.1.4.2
             if (opptype & 0xF) != 0x8 {
-                return Err(Error::InvalidBitstream);
+                return Err(Error::InvalidPlusPType);
             }
 
             source_format = match (opptype & 0x38000) >> 15 {
@@ -235,7 +235,7 @@ where
 
         // MPPTYPE should end in bits 001 as per H.263 5.1.4.3
         if mpptype & 0x007 != 0x1 {
-            return Err(Error::InvalidBitstream);
+            return Err(Error::InvalidPlusPType);
         }
 
         let picture_type = match (mpptype & 0x1C0) >> 6 {
@@ -351,11 +351,11 @@ where
         let cpfmt: u32 = reader.read_bits(23)?;
 
         if cpfmt & 0x000200 == 0 {
-            return Err(Error::InvalidBitstream);
+            return Err(Error::PictureFormatInvalid);
         }
 
         let pixel_aspect_ratio = match (cpfmt & 0x780000) >> 19 {
-            0 => return Err(Error::InvalidBitstream),
+            0 => return Err(Error::PictureFormatInvalid),
             1 => PixelAspectRatio::Square,
             2 => PixelAspectRatio::Par12_11,
             3 => PixelAspectRatio::Par10_11,
@@ -366,7 +366,7 @@ where
                 let par_height = reader.read_u8()?;
 
                 if par_width == 0 || par_height == 0 {
-                    return Err(Error::InvalidBitstream);
+                    return Err(Error::PictureFormatInvalid);
                 }
 
                 PixelAspectRatio::Extended {
@@ -616,7 +616,7 @@ where
     reader.with_transaction_union(|reader| {
         let skipped_bits = reader
             .recognize_start_code(false)?
-            .ok_or(Error::InvalidBitstream)?;
+            .ok_or(Error::MiddleOfBitstream)?;
 
         reader.skip_bits(17 + skipped_bits)?;
 

@@ -85,7 +85,7 @@ impl H263State {
                 self.decoder_options,
                 self.get_last_picture().map(|p| p.as_header()),
             )?
-            .ok_or(Error::InvalidBitstream)?;
+            .ok_or(Error::MiddleOfBitstream)?;
 
             let next_running_options = if next_picture.has_plusptype && next_picture.has_opptype {
                 next_picture.options
@@ -295,7 +295,10 @@ impl H263State {
 
                         scatter(&mut next_decoded_picture, macroblock, pos);
                     }
-                    Err(Error::InvalidBitstream) => {
+                    Err(ref e)
+                        if matches!(e, Error::InvalidMacroblockHeader)
+                            || matches!(e, Error::InvalidMacroblockCodedBits) =>
+                    {
                         match decode_gob(reader, self.decoder_options)? {
                             None => break, //We're at the end of the picture now
                             Some(GroupOfBlocks {

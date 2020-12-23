@@ -321,7 +321,7 @@ where
             }
         }
 
-        Err(Error::InvalidBitstream)
+        Err(Error::InvalidMVD)
     }
 
     /// Yield a checkpoint value that can be used to abort a complex read

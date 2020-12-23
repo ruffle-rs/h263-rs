@@ -8,6 +8,36 @@ pub enum Error {
     #[error("the H.263 decoder failed internally, this is a bug")]
     InternalDecoderError,
 
+    #[error("the H.263 bitstream doesn't start with a picture")]
+    MiddleOfBitstream,
+
+    #[error("the H.263 bitstream contains an invalid macroblock header")]
+    InvalidMacroblockHeader,
+
+    #[error("the H.263 bitstream contains invalid macroblock coded bits")]
+    InvalidMacroblockCodedBits,
+
+    #[error("the H.263 bitstream contains an invalid intra-dc coefficient")]
+    InvalidIntraDC,
+
+    #[error("the H.263 bitstream contains an invalid short ac coefficient")]
+    InvalidShortCoefficient,
+
+    #[error("the H.263 bitstream contains an invalid long ac coefficient")]
+    InvalidLongCoefficient,
+
+    #[error("the H.263 bitstream contains an invalid motion vector")]
+    InvalidMVD,
+
+    #[error("the H.263 bitstream has an invalid picture type")]
+    InvalidPType,
+
+    #[error("the H.263 bitstream has an invalid extension picture type")]
+    InvalidPlusPType,
+
+    #[error("the H.263 bitstream has an invalid group-of-blocks header")]
+    InvalidGOBHeader,
+
     #[error("the H.263 bitstream could not be decoded")]
     InvalidBitstream,
 

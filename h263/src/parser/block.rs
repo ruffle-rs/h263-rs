@@ -678,7 +678,7 @@ where
 {
     reader.with_transaction(|reader| {
         let intradc = if macroblock_type.is_intra() {
-            Some(IntraDC::from_u8(reader.read_u8()?).ok_or(Error::InvalidBitstream)?)
+            Some(IntraDC::from_u8(reader.read_u8()?).ok_or(Error::InvalidIntraDC)?)
         } else {
             None
         };
@@ -687,7 +687,7 @@ where
         while tcoef_present {
             let short_tcoef = reader.read_vlc(&TCOEF_TABLE[..])?;
 
-            match short_tcoef.ok_or(Error::InvalidBitstream)? {
+            match short_tcoef.ok_or(Error::InvalidShortCoefficient)? {
                 EscapeToLong => {
                     let level_width = if decoder_options
                         .contains(DecoderOption::SorensonSparkBitstream)
@@ -707,7 +707,7 @@ where
                     let level = reader.read_signed_bits(level_width)?;
 
                     if level == 0 {
-                        return Err(Error::InvalidBitstream);
+                        return Err(Error::InvalidLongCoefficient);
                     }
 
                     //TODO: Modified Quantization (Annex T)
@@ -715,7 +715,7 @@ where
                         if running_options.contains(PictureOption::ModifiedQuantization) {
                             return Err(Error::UnimplementedDecoding);
                         } else {
-                            return Err(Error::InvalidBitstream);
+                            return Err(Error::InvalidLongCoefficient);
                         }
                     }
 

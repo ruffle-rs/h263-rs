@@ -426,16 +426,8 @@ where
 
             Ok((x, y).into())
         } else {
-            let x = HalfPel::from(
-                reader
-                    .read_vlc(&MVD_TABLE[..])?
-                    .ok_or(Error::InvalidBitstream)?,
-            );
-            let y = HalfPel::from(
-                reader
-                    .read_vlc(&MVD_TABLE[..])?
-                    .ok_or(Error::InvalidBitstream)?,
-            );
+            let x = HalfPel::from(reader.read_vlc(&MVD_TABLE[..])?.ok_or(Error::InvalidMVD)?);
+            let y = HalfPel::from(reader.read_vlc(&MVD_TABLE[..])?.ok_or(Error::InvalidMVD)?);
 
             Ok((x, y).into())
         }
@@ -472,7 +464,7 @@ where
 
             let (mb_type, codes_chroma_b, codes_chroma_r) = match mcbpc {
                 BlockPatternEntry::Stuffing => return Ok(Macroblock::Stuffing),
-                BlockPatternEntry::Invalid => return Err(Error::InvalidBitstream),
+                BlockPatternEntry::Invalid => return Err(Error::InvalidMacroblockHeader),
                 BlockPatternEntry::Valid(mbt, chroma_b, chroma_r) => (mbt, chroma_b, chroma_r),
             };
 
@@ -485,12 +477,12 @@ where
             let codes_luma = if mb_type.is_intra() {
                 match reader.read_vlc(&CBPY_TABLE_INTRA)? {
                     Some(v) => v,
-                    None => return Err(Error::InvalidBitstream),
+                    None => return Err(Error::InvalidMacroblockCodedBits),
                 }
             } else {
                 match reader.read_vlc(&CBPY_TABLE_INTRA)? {
                     Some([v1, v2, v3, v4]) => [!v1, !v2, !v3, !v4],
-                    None => return Err(Error::InvalidBitstream),
+                    None => return Err(Error::InvalidMacroblockCodedBits),
                 }
             };
 
