@@ -15,30 +15,27 @@ use std::f32::consts::PI;
 /// that the result of the IDCT is added to it here. Otherwise, you should
 /// provide an array of zeroes.
 pub fn idct_block(block_levels: &[i16; 64], output: &mut [u8; 64]) {
-    for x in 0..8 {
-        for y in 0..8 {
+    for y in 0..8 {
+        for x in 0..8 {
             let mut sum = 0.0;
 
             for (i, coeff) in block_levels.iter().enumerate() {
-                let cu = if i % 8 == 0 {
-                    1.0 / f32::sqrt(2.0)
-                } else {
-                    0.0
-                };
-                let cv = if i / 8 == 0 {
-                    1.0 / f32::sqrt(2.0)
-                } else {
-                    0.0
-                };
-                let cosx = f32::cos(PI * (2.0 * x as f32 + 1.0) * (i % 8) as f32 / 16.0);
-                let cosy = f32::cos(PI * (2.0 * y as f32 + 1.0) * (i / 8) as f32 / 16.0);
+                let u = i % 8;
+                let v = i / 8;
+
+                let cu = if u == 0 { 1.0 / f32::sqrt(2.0) } else { 1.0 };
+                let cv = if v == 0 { 1.0 / f32::sqrt(2.0) } else { 1.0 };
+
+                let cosx = f32::cos(PI * (2.0 * x as f32 + 1.0) * u as f32 / 16.0);
+                let cosy = f32::cos(PI * (2.0 * y as f32 + 1.0) * v as f32 / 16.0);
+
                 sum += cu * cv * *coeff as f32 * cosx * cosy;
             }
 
-            let clipped_sum = min(255, max(-256, sum as i16));
-            let mocomp_pixel = output[x + y * 8] as u16 as i16;
+            let clipped_sum = min(255, max(-256, (sum / 4.0) as i16));
+            let mocomp_pixel = output[x + (y * 8)] as u16 as i16;
 
-            output[x + y * 8] = min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
+            output[x + (y * 8)] = min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
         }
     }
 }
