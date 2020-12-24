@@ -30,7 +30,7 @@ pub fn predict_candidate(
     mb_per_line: usize,
     index: usize,
 ) -> MotionVector {
-    let current_mb = predictor_vectors.len().saturating_sub(0);
+    let current_mb = predictor_vectors.len();
     let col_index = current_mb % mb_per_line;
     let mv1_pred = if col_index == 0 {
         MotionVector::zero()
@@ -48,7 +48,7 @@ pub fn predict_candidate(
     let mv2_pred = if line_index == 0 && index < 2 {
         mv1_pred
     } else {
-        let last_line_mb = (line_index - 1) * mb_per_line + col_index;
+        let last_line_mb = ((line_index - 1) * mb_per_line) + col_index;
 
         match index {
             0 => predictor_vectors

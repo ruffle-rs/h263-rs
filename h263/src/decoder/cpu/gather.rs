@@ -36,7 +36,7 @@ fn read_sample(pixel_array: &[u8], samples_per_row: usize, pos: (isize, isize)) 
     };
 
     pixel_array
-        .get(x + y * samples_per_row)
+        .get(x + (y * samples_per_row))
         .copied()
         .unwrap_or(0)
 }
@@ -73,7 +73,7 @@ fn gather_block(
             let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
             let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
 
-            target[i + j * 8] = lerp(sample_mid_0, sample_mid_1, y_interp);
+            target[i + (j * 8)] = lerp(sample_mid_0, sample_mid_1, y_interp);
         }
     }
 }
