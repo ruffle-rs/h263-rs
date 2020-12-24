@@ -88,9 +88,6 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
 
             let (x, y) = DEZIGZAG_MAPPING[zigzag_index];
             let i = x as usize + (y as usize * 8);
-            if i > levels.len() {
-                break;
-            }
 
             levels[i] = 0;
             zigzag_index += 1;
@@ -102,16 +99,13 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
 
         let (x, y) = DEZIGZAG_MAPPING[zigzag_index];
         let i = x as usize + (y as usize * 8);
-        if i > levels.len() {
-            break;
-        }
 
-        levels[i] = if quant % 2 == 1 {
+        levels[i] = if quant.abs() % 2 == 1 {
             min(
                 2047,
                 max(
                     -2048,
-                    tcoef.level.signum() * (quant * (2 * tcoef.level + 1)),
+                    tcoef.level.signum() * (quant * ((2 * tcoef.level.abs()) + 1)),
                 ),
             )
         } else {
@@ -119,7 +113,7 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
                 2047,
                 max(
                     -2048,
-                    tcoef.level.signum() * (quant * (2 * tcoef.level + 1) - 1),
+                    tcoef.level.signum() * (quant * ((2 * tcoef.level.abs()) + 1) - 1),
                 ),
             )
         };
