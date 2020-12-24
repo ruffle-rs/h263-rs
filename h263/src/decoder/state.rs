@@ -226,8 +226,8 @@ impl H263State {
                         predictor_vectors.push(motion_vectors);
 
                         let pos = (
-                            encountered_macroblocks % mb_per_line as u16,
-                            encountered_macroblocks / mb_per_line as u16,
+                            (encountered_macroblocks % mb_per_line) as u16 * 16,
+                            (encountered_macroblocks / mb_per_line) as u16 * 16,
                         );
                         let mut macroblock =
                             gather(mb_type, reference_picture, pos, motion_vectors)?;
@@ -300,6 +300,7 @@ impl H263State {
                         idct_block(&levels, macroblock.chroma_r_mut());
 
                         scatter(&mut next_decoded_picture, macroblock, pos);
+                        encountered_macroblocks += 1;
                     }
 
                     //Attempt to recover from macroblock errors if possible
