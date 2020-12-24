@@ -47,6 +47,7 @@ pub fn yuv422_to_rgba(y: &[u8], chroma_b: &[u8], chroma_r: &[u8], y_width: usize
             rgba[x_pos * 4 + y_pos * y_width * 4] = clamp(r);
             rgba[x_pos * 4 + y_pos * y_width * 4 + 1] = clamp(g);
             rgba[x_pos * 4 + y_pos * y_width * 4 + 2] = clamp(b);
+            rgba[x_pos * 4 + y_pos * y_width * 4 + 3] = 255;
         }
     }
 
