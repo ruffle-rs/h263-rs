@@ -180,57 +180,50 @@ impl H263State {
                         let mut motion_vectors = [MotionVector::zero(); 4];
 
                         if mb_type.is_inter() {
-                            motion_vectors[0] = mv_decode(
-                                &next_decoded_picture,
-                                next_running_options,
-                                predict_candidate(
-                                    &predictor_vectors[..],
-                                    &motion_vectors,
-                                    mb_per_line,
-                                    0,
-                                ),
-                                motion_vector.unwrap_or_else(MotionVector::zero),
+                            let mv1 = motion_vector.unwrap_or_else(MotionVector::zero);
+                            let mpred1 = predict_candidate(
+                                &predictor_vectors[..],
+                                &motion_vectors,
+                                mb_per_line,
+                                0,
                             );
 
-                            if let Some([mv2, mv3, mv4]) = addl_motion_vectors {
-                                motion_vectors[1] = mv_decode(
-                                    &next_decoded_picture,
-                                    next_running_options,
-                                    predict_candidate(
-                                        &predictor_vectors[..],
-                                        &motion_vectors,
-                                        mb_per_line,
-                                        1,
-                                    ),
-                                    mv2,
-                                );
-                                motion_vectors[2] = mv_decode(
-                                    &next_decoded_picture,
-                                    next_running_options,
-                                    predict_candidate(
-                                        &predictor_vectors[..],
-                                        &motion_vectors,
-                                        mb_per_line,
-                                        2,
-                                    ),
-                                    mv3,
-                                );
-                                motion_vectors[3] = mv_decode(
-                                    &next_decoded_picture,
-                                    next_running_options,
-                                    predict_candidate(
-                                        &predictor_vectors[..],
-                                        &motion_vectors,
-                                        mb_per_line,
-                                        3,
-                                    ),
-                                    mv4,
-                                );
+                            motion_vectors[0] =
+                                mv_decode(&next_decoded_picture, next_running_options, mpred1, mv1);
+
+                            let (mv2, mv3, mv4) = if let Some([mv2, mv3, mv4]) = addl_motion_vectors
+                            {
+                                (mv2, mv3, mv4)
                             } else {
-                                motion_vectors[1] = motion_vectors[0];
-                                motion_vectors[2] = motion_vectors[0];
-                                motion_vectors[3] = motion_vectors[0];
-                            }
+                                (mv1, mv1, mv1)
+                            };
+
+                            let mpred2 = predict_candidate(
+                                &predictor_vectors[..],
+                                &motion_vectors,
+                                mb_per_line,
+                                1,
+                            );
+                            motion_vectors[1] =
+                                mv_decode(&next_decoded_picture, next_running_options, mpred2, mv2);
+
+                            let mpred3 = predict_candidate(
+                                &predictor_vectors[..],
+                                &motion_vectors,
+                                mb_per_line,
+                                2,
+                            );
+                            motion_vectors[2] =
+                                mv_decode(&next_decoded_picture, next_running_options, mpred3, mv3);
+
+                            let mpred4 = predict_candidate(
+                                &predictor_vectors[..],
+                                &motion_vectors,
+                                mb_per_line,
+                                3,
+                            );
+                            motion_vectors[3] =
+                                mv_decode(&next_decoded_picture, next_running_options, mpred4, mv4);
                         };
 
                         predictor_vectors.push(motion_vectors);
