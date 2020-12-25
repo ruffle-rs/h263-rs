@@ -32,53 +32,35 @@ pub fn predict_candidate(
 ) -> MotionVector {
     let current_mb = predictor_vectors.len();
     let col_index = current_mb % mb_per_line;
-    let mv1_pred = if col_index == 0 {
-        MotionVector::zero()
-    } else {
-        match index {
-            0 => predictor_vectors[current_mb as usize - 1][1],
-            1 => current_predictors[0],
-            2 => predictor_vectors[current_mb as usize - 1][3],
-            3 => current_predictors[2],
-            _ => unreachable!(),
-        }
+    let mv1_pred = match index {
+        0 | 2 if col_index == 0 => MotionVector::zero(),
+        0 | 2 => predictor_vectors[current_mb as usize - 1][index + 1],
+        1 | 3 => current_predictors[index - 1],
+        _ => unreachable!(),
     };
 
     let line_index = current_mb / mb_per_line;
-    let mv2_pred = if line_index == 0 && index < 2 {
-        mv1_pred
-    } else {
-        let last_line_mb = ((line_index - 1) * mb_per_line) + col_index;
-
-        match index {
-            0 => predictor_vectors
-                .get(last_line_mb)
-                .map(|mb| mb[2])
-                .unwrap_or(mv1_pred),
-            1 => predictor_vectors
-                .get(last_line_mb)
-                .map(|mb| mb[3])
-                .unwrap_or(mv1_pred),
-            2 | 3 => current_predictors[0],
-            _ => unreachable!(),
-        }
+    let last_line_mb = (line_index.saturating_sub(1) * mb_per_line) + col_index;
+    let mv2_pred = match index {
+        0 | 1 if line_index == 0 => mv1_pred,
+        0 | 1 => predictor_vectors
+            .get(last_line_mb)
+            .map(|mb| mb[index + 2])
+            .unwrap_or(mv1_pred),
+        2 | 3 => current_predictors[0],
+        _ => unreachable!(),
     };
 
-    let mv3_pred = if col_index == mb_per_line - 1 && index < 2 {
-        MotionVector::zero()
-    } else if line_index == 0 && index < 2 {
-        mv1_pred
-    } else {
-        let last_line_mb = (line_index - 1) * mb_per_line + col_index + 1;
-
-        match index {
-            0 | 1 => predictor_vectors
-                .get(last_line_mb)
-                .map(|mb| mb[2])
-                .unwrap_or(mv1_pred),
-            2 | 3 => current_predictors[1],
-            _ => unreachable!(),
-        }
+    let is_end_of_line = col_index == mb_per_line.saturating_sub(1);
+    let mv3_pred = match index {
+        0 | 1 if is_end_of_line => MotionVector::zero(),
+        0 | 1 if line_index == 0 => mv1_pred,
+        0 | 1 => predictor_vectors
+            .get(last_line_mb + 1)
+            .map(|mb| mb[2])
+            .unwrap_or(mv1_pred),
+        2 | 3 => current_predictors[1],
+        _ => unreachable!(),
     };
 
     (mv1_pred + mv2_pred + mv3_pred) / 3
