@@ -623,7 +623,7 @@ impl MacroblockType {
         matches!(self, Self::Inter)
             || matches!(self, Self::InterQ)
             || matches!(self, Self::Inter4V)
-            || matches!(self, Self::Inter4V)
+            || matches!(self, Self::Inter4VQ)
     }
 
     /// Determine if this is an `INTRA` macroblock.
