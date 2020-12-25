@@ -506,9 +506,7 @@ where
                 None
             };
 
-            let addl_motion_vectors = if running_options.contains(PictureOption::AdvancedPrediction)
-                && mb_type.has_fourvec()
-            {
+            let addl_motion_vectors = if mb_type.has_fourvec() {
                 let mv2 = decode_motion_vector(reader, picture, running_options)?;
                 let mv3 = decode_motion_vector(reader, picture, running_options)?;
                 let mv4 = decode_motion_vector(reader, picture, running_options)?;
