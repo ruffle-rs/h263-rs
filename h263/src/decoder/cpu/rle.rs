@@ -75,7 +75,7 @@ const DEZIGZAG_MAPPING: [u8; 64] = [
 /// `tcoefs` should be the list of run-length encoded coefficients. `levels`
 /// will be filled with a row-major (x + y*8) decompressed list of
 /// coefficients.
-pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
+pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: u8) {
     let mut zigzag_index = 1;
 
     *levels = [0; 64];
@@ -98,24 +98,13 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
         }
 
         let i: usize = DEZIGZAG_MAPPING[zigzag_index].into();
+        let dequantized_level = quant as i16 * ((2 * tcoef.level.abs()) + 1);
+        let parity = if quant % 2 == 1 { 0 } else { -1 };
 
-        levels[i] = if quant.abs() % 2 == 1 {
-            min(
-                2047,
-                max(
-                    -2048,
-                    tcoef.level.signum() * (quant * ((2 * tcoef.level.abs()) + 1)),
-                ),
-            )
-        } else {
-            min(
-                2047,
-                max(
-                    -2048,
-                    tcoef.level.signum() * (quant * ((2 * tcoef.level.abs()) + 1) - 1),
-                ),
-            )
-        };
+        levels[i] = min(
+            2047,
+            max(-2048, tcoef.level.signum() * (dequantized_level + parity)),
+        );
         zigzag_index += 1;
     }
 }
