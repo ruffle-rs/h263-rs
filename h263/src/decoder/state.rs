@@ -6,8 +6,8 @@ use crate::decoder::types::DecoderOption;
 use crate::error::{Error, Result};
 use crate::parser::{decode_block, decode_gob, decode_macroblock, decode_picture, H263Reader};
 use crate::types::{
-    GroupOfBlocks, Macroblock, MotionVector, PictureOption, PictureTypeCode, MPPTYPE_OPTIONS,
-    OPPTYPE_OPTIONS,
+    GroupOfBlocks, Macroblock, MacroblockType, MotionVector, PictureOption, PictureTypeCode,
+    MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
 };
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -144,8 +144,18 @@ impl H263State {
                             return Err(Error::UncodedIFrameBlocks);
                         }
 
-                        //TODO: copy pixel data as if this was an INTER block
-                        //with no new IDCT energy
+                        let motion_vectors = [MotionVector::zero(); 4];
+                        let pos = (
+                            (encountered_macroblocks % mb_per_line) as u16 * 16,
+                            (encountered_macroblocks / mb_per_line) as u16 * 16,
+                        );
+                        let macroblock = gather(
+                            MacroblockType::Inter,
+                            reference_picture,
+                            pos,
+                            motion_vectors,
+                        )?;
+                        scatter(&mut next_decoded_picture, macroblock, pos);
 
                         predictor_vectors.push([MotionVector::zero(); 4]);
                         encountered_macroblocks += 1;
