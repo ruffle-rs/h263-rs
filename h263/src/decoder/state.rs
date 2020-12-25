@@ -189,13 +189,8 @@ impl H263State {
                         addl_motion_vectors,
                         motion_vectors_b: _motion_vectors_b,
                     }) => {
-                        let quantizer = min(
-                            max(
-                                in_force_quantizer as i16 + d_quantizer.unwrap_or(0) as i16,
-                                1,
-                            ),
-                            31,
-                        );
+                        let quantizer = in_force_quantizer as i8 + d_quantizer.unwrap_or(0);
+                        in_force_quantizer = max(1, min(31, quantizer)) as u8;
 
                         let mut motion_vectors = [MotionVector::zero(); 4];
 
@@ -264,7 +259,7 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[0],
                         )?;
-                        inverse_rle(&luma0, &mut levels, quantizer);
+                        inverse_rle(&luma0, &mut levels, in_force_quantizer);
                         idct_block(&levels, macroblock.luma_mut(0));
 
                         let luma1 = decode_block(
@@ -275,7 +270,7 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[1],
                         )?;
-                        inverse_rle(&luma1, &mut levels, quantizer);
+                        inverse_rle(&luma1, &mut levels, in_force_quantizer);
                         idct_block(&levels, macroblock.luma_mut(1));
 
                         let luma2 = decode_block(
@@ -286,7 +281,7 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[2],
                         )?;
-                        inverse_rle(&luma2, &mut levels, quantizer);
+                        inverse_rle(&luma2, &mut levels, in_force_quantizer);
                         idct_block(&levels, macroblock.luma_mut(2));
 
                         let luma3 = decode_block(
@@ -297,7 +292,7 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[3],
                         )?;
-                        inverse_rle(&luma3, &mut levels, quantizer);
+                        inverse_rle(&luma3, &mut levels, in_force_quantizer);
                         idct_block(&levels, macroblock.luma_mut(3));
 
                         let chroma_b = decode_block(
@@ -308,7 +303,7 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_chroma_b,
                         )?;
-                        inverse_rle(&chroma_b, &mut levels, quantizer);
+                        inverse_rle(&chroma_b, &mut levels, in_force_quantizer);
                         idct_block(&levels, macroblock.chroma_b_mut());
 
                         let chroma_r = decode_block(
@@ -319,7 +314,7 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_chroma_r,
                         )?;
-                        inverse_rle(&chroma_r, &mut levels, quantizer);
+                        inverse_rle(&chroma_r, &mut levels, in_force_quantizer);
                         idct_block(&levels, macroblock.chroma_r_mut());
 
                         scatter(&mut next_decoded_picture, macroblock, pos);
