@@ -19,13 +19,23 @@ pub struct H263State {
     decoder_options: DecoderOption,
 
     /// The temporal reference of the last decoded picture.
-    last_picture: u16,
+    ///
+    /// `None` indicates that no picture has been decoded yet.
+    last_picture: Option<u16>,
+
+    /// The temporal reference of the implicit reference picture for the next
+    /// decode operation.
+    ///
+    /// Disposable frames do not update the reference picture index.
+    ///
+    /// `None` indicates that no reference picture has been decoded yet.
+    reference_picture: Option<u16>,
 
     /// All currently in-force picture options as of the last decoded frame.
     running_options: PictureOption,
 
     /// All previously-encoded reference pictures.
-    reference_picture: HashMap<u16, DecodedPicture>,
+    reference_states: HashMap<u16, DecodedPicture>,
 }
 
 impl H263State {
@@ -33,9 +43,10 @@ impl H263State {
     pub fn new(decoder_options: DecoderOption) -> Self {
         Self {
             decoder_options,
-            last_picture: 0xFFFF,
+            last_picture: None,
+            reference_picture: None,
             running_options: PictureOption::empty(),
-            reference_picture: HashMap::new(),
+            reference_states: HashMap::new(),
         }
     }
 
@@ -49,10 +60,21 @@ impl H263State {
     ///
     /// If `None`, then no pictures have yet to be decoded.
     pub fn get_last_picture(&self) -> Option<&DecodedPicture> {
-        if self.last_picture == 0xFFFF {
+        if self.last_picture.is_none() {
             None
         } else {
-            self.reference_picture.get(&self.last_picture)
+            self.reference_states.get(&self.last_picture.unwrap())
+        }
+    }
+
+    /// Get the implicit reference picture decoded in the bitstream.
+    ///
+    /// If `None`, then no pictures have yet to be decoded.
+    pub fn get_reference_picture(&self) -> Option<&DecodedPicture> {
+        if self.reference_picture.is_none() {
+            None
+        } else {
+            self.reference_states.get(&self.last_picture.unwrap())
         }
     }
 
@@ -113,9 +135,7 @@ impl H263State {
                 return Err(Error::PictureFormatMissing);
             };
 
-            //TODO: Exactly what IS the reference picture? Is it just the last
-            //one?
-            let reference_picture = self.get_last_picture();
+            let reference_picture = self.get_reference_picture();
 
             let mut next_decoded_picture =
                 DecodedPicture::new(next_picture, format).ok_or(Error::PictureFormatInvalid)?;
@@ -344,12 +364,21 @@ impl H263State {
                 PictureTypeCode::IFrame
             ) {
                 //You cannot backwards predict across iframes
-                self.reference_picture = HashMap::new();
+                self.reference_states = HashMap::new();
+                self.reference_picture = None;
             }
 
-            self.last_picture = next_decoded_picture.as_header().temporal_reference;
-            self.reference_picture
-                .insert(self.last_picture, next_decoded_picture);
+            let this_tr = next_decoded_picture.as_header().temporal_reference;
+            self.last_picture = Some(this_tr);
+            if !next_decoded_picture
+                .as_header()
+                .picture_type
+                .is_disposable()
+            {
+                self.reference_picture = Some(this_tr);
+            }
+
+            self.reference_states.insert(this_tr, next_decoded_picture);
 
             Ok(())
         })

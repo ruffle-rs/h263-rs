@@ -290,6 +290,10 @@ impl PictureTypeCode {
     pub fn is_any_pbframe(self) -> bool {
         matches!(self, Self::PBFrame) || matches!(self, Self::ImprovedPBFrame)
     }
+
+    pub fn is_disposable(self) -> bool {
+        matches!(self, Self::DisposablePFrame)
+    }
 }
 
 /// ITU-T Recommendation H.263 (01/2005) 5.1.5-5.1.6 `CPFMT`, `EPAR`
