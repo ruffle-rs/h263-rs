@@ -40,9 +40,9 @@ pub fn yuv422_to_rgba(y: &[u8], chroma_b: &[u8], chroma_r: &[u8], y_width: usize
                 .copied()
                 .unwrap_or(0) as f32;
 
-            y_sample = (y_sample - 16.0) * (255.0 / (235.0-16.0));
-            b_sample = (b_sample - 16.0) * (255.0 / (240.0-16.0));
-            r_sample = (r_sample - 16.0) * (255.0 / (240.0-16.0));
+            y_sample = (y_sample - 16.0) * (255.0 / (235.0 - 16.0));
+            b_sample = (b_sample - 16.0) * (255.0 / (240.0 - 16.0));
+            r_sample = (r_sample - 16.0) * (255.0 / (240.0 - 16.0));
 
             b_sample -= 128.0;
             r_sample -= 128.0;
