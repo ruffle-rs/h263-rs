@@ -78,6 +78,7 @@ const DEZIGZAG_MAPPING: [(u8, u8); 64] = [
 pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: i16) {
     let mut zigzag_index = 1;
 
+    *levels = [0; 64];
     levels[0] = encoded_block.intradc.map(|l| l.into_level()).unwrap_or(0);
 
     for tcoef in encoded_block.tcoef.iter() {
