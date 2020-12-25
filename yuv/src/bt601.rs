@@ -30,19 +30,26 @@ pub fn yuv422_to_rgba(y: &[u8], chroma_b: &[u8], chroma_r: &[u8], y_width: usize
 
     for y_pos in 0..y_height {
         for x_pos in 0..y_width {
-            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0) as f32;
-            let b_sample = chroma_b
+            let mut y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0) as f32;
+            let mut b_sample = chroma_b
                 .get((x_pos / 2) + ((y_pos / 2) * br_width))
                 .copied()
                 .unwrap_or(0) as f32;
-            let r_sample = chroma_r
+            let mut r_sample = chroma_r
                 .get((x_pos / 2) + ((y_pos / 2) * br_width))
                 .copied()
                 .unwrap_or(0) as f32;
 
-            let r = y_sample + r_sample * 1.13983;
-            let g = y_sample + b_sample * -0.39465 + r_sample * 1.13983;
-            let b = y_sample + b_sample * 2.03211;
+            y_sample = (y_sample - 16.0) * (255.0 / (235.0-16.0));
+            b_sample = (b_sample - 16.0) * (255.0 / (240.0-16.0));
+            r_sample = (r_sample - 16.0) * (255.0 / (240.0-16.0));
+
+            b_sample -= 128.0;
+            r_sample -= 128.0;
+
+            let r = y_sample + r_sample * 1.370705;
+            let g = y_sample + r_sample * -0.698001 + b_sample * -0.337633;
+            let b = y_sample + b_sample * 1.732446;
 
             rgba[x_pos * 4 + y_pos * y_width * 4] = clamp(r);
             rgba[x_pos * 4 + y_pos * y_width * 4 + 1] = clamp(g);
