@@ -82,16 +82,7 @@ pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: u8) {
     levels[0] = encoded_block.intradc.map(|l| l.into_level()).unwrap_or(0);
 
     for tcoef in encoded_block.tcoef.iter() {
-        for _ in 0..tcoef.run {
-            if zigzag_index >= DEZIGZAG_MAPPING.len() {
-                return;
-            }
-
-            let i: usize = DEZIGZAG_MAPPING[zigzag_index].into();
-
-            levels[i] = 0;
-            zigzag_index += 1;
-        }
+        zigzag_index += tcoef.run as usize;
 
         if zigzag_index >= DEZIGZAG_MAPPING.len() {
             return;
