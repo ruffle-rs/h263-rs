@@ -660,7 +660,7 @@ pub struct CodedBlockPattern {
 }
 
 /// Half-pixel motion vector components.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HalfPel(i16);
 
 impl From<f32> for HalfPel {
@@ -733,6 +733,36 @@ impl HalfPel {
             _ => Self(whole + 1),
         }
     }
+
+    /// Given this and two other values, determine the median value and return
+    /// it.
+    pub fn median_of(self, mhs: Self, rhs: Self) -> Self {
+        if self > mhs {
+            if rhs > mhs {
+                if rhs > self {
+                    //rhs, self, mhs
+                    self
+                } else {
+                    //self, rhs, mhs
+                    rhs
+                }
+            } else {
+                //self, mhs, rhs
+                mhs
+            }
+        } else if mhs > rhs {
+            if rhs > self {
+                // mhs, rhs, self
+                rhs
+            } else {
+                // mhs, self, rhs
+                self
+            }
+        } else {
+            // mhs, self
+            mhs
+        }
+    }
 }
 
 impl Add<HalfPel> for HalfPel {
@@ -777,6 +807,15 @@ impl MotionVector {
 
     pub fn average_sum_of_mvs(self) -> Self {
         Self(self.0.average_sum_of_mvs(), self.1.average_sum_of_mvs())
+    }
+
+    /// Given this and two other motion vectors, determine the median value of
+    /// each component and return it.
+    pub fn median_of(self, mhs: Self, rhs: Self) -> Self {
+        MotionVector(
+            self.0.median_of(mhs.0, rhs.0),
+            self.1.median_of(mhs.1, rhs.1),
+        )
     }
 }
 

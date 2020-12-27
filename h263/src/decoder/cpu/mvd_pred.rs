@@ -63,7 +63,7 @@ pub fn predict_candidate(
         _ => unreachable!(),
     };
 
-    (mv1_pred + mv2_pred + mv3_pred) / 3
+    mv1_pred.median_of(mv2_pred, mv3_pred)
 }
 
 /// Decode a single component of a motion vector.
