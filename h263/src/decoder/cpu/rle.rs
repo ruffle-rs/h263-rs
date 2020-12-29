@@ -76,10 +76,14 @@ const DEZIGZAG_MAPPING: [u8; 64] = [
 /// will be filled with a row-major (x + y*8) decompressed list of
 /// coefficients.
 pub fn inverse_rle(encoded_block: &Block, levels: &mut [i16; 64], quant: u8) {
-    let mut zigzag_index = 1;
+    let mut zigzag_index = 0;
 
     *levels = [0; 64];
-    levels[0] = encoded_block.intradc.map(|l| l.into_level()).unwrap_or(0);
+
+    if let Some(dc) = encoded_block.intradc {
+        levels[0] = dc.into_level();
+        zigzag_index += 1;
+    }
 
     for tcoef in encoded_block.tcoef.iter() {
         zigzag_index += tcoef.run as usize;
