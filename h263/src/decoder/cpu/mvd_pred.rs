@@ -107,14 +107,6 @@ pub fn halfpel_decode(
                 _ => HalfPel::EXTENDED_RANGE, // this is actually an error condition.
             };
         }
-    } else if matches!(
-        current_picture.as_header().motion_vector_range,
-        Some(MotionVectorRange::Unlimited)
-    ) {
-        // Note that we explicitly allow the Unlimited flag to exist without
-        // the presence of the UMV option. This is because Sorenson doesn't use
-        // the UMV option.
-        return out;
     }
 
     if !out.is_mv_within_range(range) {
