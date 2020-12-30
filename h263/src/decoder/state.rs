@@ -142,19 +142,27 @@ impl H263State {
             let mut in_force_quantizer = next_decoded_picture.as_header().quantizer;
             let mut predictor_vectors = Vec::new(); // all previously decoded MVDs
             let mut encountered_macroblocks = 0;
-            let mb_per_line = next_decoded_picture
+            let mb_per_line = (next_decoded_picture
                 .format()
                 .into_width_and_height()
                 .unwrap()
-                .0 as usize
-                / 16;
+                .0 as f64
+                / 16.0)
+                .ceil() as usize;
 
             loop {
-                match decode_macroblock(
+                let mb = decode_macroblock(
                     reader,
                     &next_decoded_picture.as_header(),
                     next_running_options,
-                ) {
+                );
+                let pos = (
+                    (encountered_macroblocks % mb_per_line) as u16 * 16,
+                    (encountered_macroblocks / mb_per_line) as u16 * 16,
+                );
+                let mut motion_vectors = [MotionVector::zero(); 4];
+
+                match mb {
                     Ok(Macroblock::Stuffing) => continue,
                     Ok(Macroblock::Uncoded) => {
                         if matches!(
@@ -164,11 +172,6 @@ impl H263State {
                             return Err(Error::UncodedIFrameBlocks);
                         }
 
-                        let motion_vectors = [MotionVector::zero(); 4];
-                        let pos = (
-                            (encountered_macroblocks % mb_per_line) as u16 * 16,
-                            (encountered_macroblocks / mb_per_line) as u16 * 16,
-                        );
                         let macroblock = gather(
                             MacroblockType::Inter,
                             reference_picture,
@@ -176,9 +179,6 @@ impl H263State {
                             motion_vectors,
                         )?;
                         scatter(&mut next_decoded_picture, macroblock, pos);
-
-                        predictor_vectors.push([MotionVector::zero(); 4]);
-                        encountered_macroblocks += 1;
                     }
                     Ok(Macroblock::Coded {
                         mb_type,
@@ -191,8 +191,6 @@ impl H263State {
                     }) => {
                         let quantizer = in_force_quantizer as i8 + d_quantizer.unwrap_or(0);
                         in_force_quantizer = max(1, min(31, quantizer)) as u8;
-
-                        let mut motion_vectors = [MotionVector::zero(); 4];
 
                         if mb_type.is_inter() {
                             let mv1 = motion_vector.unwrap_or_else(MotionVector::zero);
@@ -252,12 +250,6 @@ impl H263State {
                             };
                         };
 
-                        predictor_vectors.push(motion_vectors);
-
-                        let pos = (
-                            (encountered_macroblocks % mb_per_line) as u16 * 16,
-                            (encountered_macroblocks / mb_per_line) as u16 * 16,
-                        );
                         let mut macroblock =
                             gather(mb_type, reference_picture, pos, motion_vectors)?;
                         let mut levels = [0; 64];
@@ -329,7 +321,6 @@ impl H263State {
                         idct_block(&levels, macroblock.chroma_r_mut());
 
                         scatter(&mut next_decoded_picture, macroblock, pos);
-                        encountered_macroblocks += 1;
                     }
 
                     //Attempt to recover from macroblock errors if possible
@@ -347,6 +338,7 @@ impl H263State {
                             })) => {
                                 in_force_quantizer = quantizer;
                                 predictor_vectors = Vec::new();
+                                continue;
                             }
 
                             // Treat EOF/GOB errors as end of picture
@@ -359,6 +351,9 @@ impl H263State {
                     Err(ref e) if e.is_eof_error() => break,
                     Err(e) => return Err(e),
                 }
+
+                predictor_vectors.push(motion_vectors);
+                encountered_macroblocks += 1;
             }
 
             //At this point, all decoding should be complete, and we should
