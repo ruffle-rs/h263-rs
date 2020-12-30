@@ -41,9 +41,13 @@ fn read_sample(pixel_array: &[u8], samples_per_row: usize, pos: (isize, isize)) 
         .unwrap_or(0)
 }
 
-/// Linear interpolation between two values by some percentage.
+/// Linear interpolation between two values by 0 or 50%.
 fn lerp(sample_a: u8, sample_b: u8, amount_b: f32) -> u8 {
-    (sample_a as f32 * (1.0 - amount_b) + sample_b as f32 * amount_b) as u8
+    if amount_b > 0.0 {
+        ((sample_a as u16 + sample_b as u16 + 1) / 2) as u8
+    } else {
+        sample_a
+    }
 }
 
 /// Copy pixel data from a pixel array, motion-compensate it, and fill a block
