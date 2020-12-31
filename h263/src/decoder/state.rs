@@ -78,6 +78,26 @@ impl H263State {
         }
     }
 
+    /// Remove all disposable pictures from the reference states list.
+    pub fn cleanup_buffers(&mut self) {
+        let last_picture = self
+            .last_picture
+            .and_then(|lp| self.reference_states.remove_entry(&lp));
+        let reference_picture = self
+            .reference_picture
+            .and_then(|rp| self.reference_states.remove_entry(&rp));
+
+        self.reference_states = HashMap::new();
+
+        if let Some((k, lp)) = last_picture {
+            self.reference_states.insert(k, lp);
+        }
+
+        if let Some((k, rp)) = reference_picture {
+            self.reference_states.insert(k, rp);
+        }
+    }
+
     /// Decode the next picture in the bitstream.
     ///
     /// This does not yield any picture data: it merely advances the state of
@@ -365,7 +385,6 @@ impl H263State {
                 PictureTypeCode::IFrame
             ) {
                 //You cannot backwards predict across iframes
-                self.reference_states = HashMap::new();
                 self.reference_picture = None;
             }
 
@@ -380,6 +399,9 @@ impl H263State {
             }
 
             self.reference_states.insert(this_tr, next_decoded_picture);
+            self.cleanup_buffers();
+
+            reader.commit();
 
             Ok(())
         })

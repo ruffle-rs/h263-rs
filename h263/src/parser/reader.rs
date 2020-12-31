@@ -360,7 +360,7 @@ where
     /// This should only be called once all of the data necessary to represent
     /// a user-facing object has been read. All existing checkpoints will be
     /// invalidated.
-    fn commit(&mut self) {
+    pub fn commit(&mut self) {
         self.buffer.drain(0..self.bits_read / 8);
         self.bits_read %= 8;
     }
