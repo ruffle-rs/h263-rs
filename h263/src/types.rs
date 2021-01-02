@@ -699,10 +699,16 @@ impl HalfPel {
         Self(0)
     }
 
-    /// Separate the half-pixel into a whole part and a fractional part.
-    pub fn into_whole_and_fractional(self) -> (i16, bool) {
+    /// Separate the half-pixel into lerp parameters.
+    ///
+    /// The first parameter indicates the offset of the top/left coordinate to
+    /// sample from, and the second indicates if you also need to lerp with the
+    /// pixel to the right or bottom.
+    pub fn into_lerp_parameters(self) -> (i16, bool) {
         if self.0 % 2 == 0 {
             (self.0 / 2, false)
+        } else if self < HalfPel::zero() {
+            (self.0 / 2 - 1, true)
         } else {
             (self.0 / 2, true)
         }
@@ -811,11 +817,8 @@ impl MotionVector {
         Self(HalfPel::zero(), HalfPel::zero())
     }
 
-    pub fn into_whole_and_fractional(self) -> ((i16, bool), (i16, bool)) {
-        (
-            self.0.into_whole_and_fractional(),
-            self.1.into_whole_and_fractional(),
-        )
+    pub fn into_lerp_parameters(self) -> ((i16, bool), (i16, bool)) {
+        (self.0.into_lerp_parameters(), self.1.into_lerp_parameters())
     }
 
     pub fn average_sum_of_mvs(self) -> Self {

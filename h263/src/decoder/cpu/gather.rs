@@ -62,7 +62,7 @@ fn gather_block(
     mv: MotionVector,
     target: &mut [u8],
 ) {
-    let ((x_delta, x_interp), (y_delta, y_interp)) = mv.into_whole_and_fractional();
+    let ((x_delta, x_interp), (y_delta, y_interp)) = mv.into_lerp_parameters();
 
     let x = pos.0 as isize + x_delta as isize;
     let y = pos.1 as isize + y_delta as isize;
@@ -79,21 +79,9 @@ fn gather_block(
             }
 
             let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
-            let sample_1_0 = read_sample(
-                pixel_array,
-                samples_per_row,
-                (u + x_delta.signum() as isize, v),
-            );
-            let sample_0_1 = read_sample(
-                pixel_array,
-                samples_per_row,
-                (u, v + y_delta.signum() as isize),
-            );
-            let sample_1_1 = read_sample(
-                pixel_array,
-                samples_per_row,
-                (u + x_delta.signum() as isize, v + y_delta.signum() as isize),
-            );
+            let sample_1_0 = read_sample(pixel_array, samples_per_row, (u + 1, v));
+            let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));
+            let sample_1_1 = read_sample(pixel_array, samples_per_row, (u + 1, v + 1));
 
             let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
             let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
