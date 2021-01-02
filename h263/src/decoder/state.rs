@@ -157,25 +157,26 @@ impl H263State {
 
             let reference_picture = self.get_reference_picture();
 
-            let dimensions = format
+            let output_dimensions = format
                 .into_width_and_height()
                 .ok_or(Error::PictureFormatInvalid)?;
 
-            let mb_per_line = (dimensions.0 as f64 / 16.0).ceil() as usize;
-            let mb_height = (dimensions.1 as f64 / 16.0).ceil() as usize;
+            let mb_per_line = (output_dimensions.0 as f64 / 16.0).ceil() as usize;
+            let mb_height = (output_dimensions.1 as f64 / 16.0).ceil() as usize;
 
-            let dimensions = (mb_per_line * 16, mb_height * 16);
+            let level_dimensions = (mb_per_line * 16, mb_height * 16);
 
             let mut in_force_quantizer = next_picture.quantizer;
             let mut predictor_vectors = Vec::with_capacity(mb_per_line * mb_height); // all previously decoded MVDs
             let mut macroblock_types = Vec::with_capacity(mb_per_line * mb_height);
             let mut macroblocks_after_gob = 0; //reset after every GOB header
 
-            let mut next_decoded_picture = DecodedPicture::new(next_picture, format, dimensions);
+            let mut next_decoded_picture =
+                DecodedPicture::new(next_picture, format).ok_or(Error::PictureFormatInvalid)?;
 
-            let mut luma_levels = vec![0; next_decoded_picture.as_luma().len()];
-            let mut chroma_b_levels = vec![0; next_decoded_picture.as_chroma_b().len()];
-            let mut chroma_r_levels = vec![0; next_decoded_picture.as_chroma_r().len()];
+            let mut luma_levels = vec![0; level_dimensions.0 * level_dimensions.1];
+            let mut chroma_b_levels = vec![0; level_dimensions.0 * level_dimensions.1 / 4];
+            let mut chroma_r_levels = vec![0; level_dimensions.0 * level_dimensions.1 / 4];
 
             loop {
                 let mb = decode_macroblock(
@@ -283,7 +284,7 @@ impl H263State {
                             &luma0,
                             &mut luma_levels,
                             pos,
-                            dimensions.0,
+                            level_dimensions.0,
                             in_force_quantizer,
                         );
 
@@ -299,7 +300,7 @@ impl H263State {
                             &luma1,
                             &mut luma_levels,
                             (pos.0 + 8, pos.1),
-                            dimensions.0,
+                            level_dimensions.0,
                             in_force_quantizer,
                         );
 
@@ -315,7 +316,7 @@ impl H263State {
                             &luma2,
                             &mut luma_levels,
                             (pos.0, pos.1 + 8),
-                            dimensions.0,
+                            level_dimensions.0,
                             in_force_quantizer,
                         );
 
@@ -331,7 +332,7 @@ impl H263State {
                             &luma3,
                             &mut luma_levels,
                             (pos.0 + 8, pos.1 + 8),
-                            dimensions.0,
+                            level_dimensions.0,
                             in_force_quantizer,
                         );
 
@@ -347,7 +348,7 @@ impl H263State {
                             &chroma_b,
                             &mut chroma_b_levels,
                             (pos.0 / 2, pos.1 / 2),
-                            dimensions.0 / 2,
+                            level_dimensions.0 / 2,
                             in_force_quantizer,
                         );
 
@@ -363,7 +364,7 @@ impl H263State {
                             &chroma_r,
                             &mut chroma_r_levels,
                             (pos.0 / 2, pos.1 / 2),
-                            dimensions.0 / 2,
+                            level_dimensions.0 / 2,
                             in_force_quantizer,
                         );
 
@@ -416,17 +417,20 @@ impl H263State {
             idct_channel(
                 &luma_levels,
                 next_decoded_picture.as_luma_mut(),
-                dimensions.0,
+                level_dimensions.0,
+                (output_dimensions.0).into(),
             );
             idct_channel(
                 &chroma_b_levels,
                 next_decoded_picture.as_chroma_b_mut(),
-                dimensions.0 / 2,
+                level_dimensions.0 / 2,
+                (output_dimensions.0 / 2).into(),
             );
             idct_channel(
                 &chroma_r_levels,
                 next_decoded_picture.as_chroma_r_mut(),
-                dimensions.0 / 2,
+                level_dimensions.0 / 2,
+                (output_dimensions.0 / 2).into(),
             );
 
             //At this point, all decoding should be complete, and we should

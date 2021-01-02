@@ -3,6 +3,7 @@
 use crate::decoder::picture::DecodedPicture;
 use crate::error::Error;
 use crate::types::{MacroblockType, MotionVector};
+use std::cmp::min;
 
 /// Read a sample from the pixel array at a given position.
 ///
@@ -65,9 +66,10 @@ fn gather_block(
 
     let x = pos.0 as isize + x_delta as isize;
     let y = pos.1 as isize + y_delta as isize;
+    let array_height = pixel_array.len() / samples_per_row;
 
-    for (i, u) in (x..x + 8).enumerate() {
-        for (j, v) in (y..y + 8).enumerate() {
+    for (i, u) in (x..min(x + 8, samples_per_row as isize)).enumerate() {
+        for (j, v) in (y..min(y + 8, array_height as isize)).enumerate() {
             let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
             let sample_1_0 = read_sample(pixel_array, samples_per_row, (u + 1, v));
             let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));

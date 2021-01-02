@@ -18,11 +18,16 @@ use std::f32::consts::PI;
 /// output array with the result of said step so that the IDCT and summation
 /// step can happen simultaneously. Otherwise, you should provide an array of
 /// zeroes.
-pub fn idct_channel(block_levels: &[i16], output: &mut [u8], samples_per_line: usize) {
-    let block_height = block_levels.len() / samples_per_line;
+pub fn idct_channel(
+    block_levels: &[i16],
+    output: &mut [u8],
+    samples_per_line: usize,
+    output_samples_per_line: usize,
+) {
+    let output_height = output.len() / output_samples_per_line;
 
-    for y in 0..block_height {
-        for x in 0..samples_per_line {
+    for y in 0..output_height {
+        for x in 0..output_samples_per_line {
             let mut sum = 0.0;
             let x_base = x & !0x7;
             let y_base = y & !0x7;
@@ -42,9 +47,10 @@ pub fn idct_channel(block_levels: &[i16], output: &mut [u8], samples_per_line: u
             }
 
             let clipped_sum = min(255, max(-256, (sum / 4.0) as i16));
-            let mocomp_pixel = output[x + (y * samples_per_line)] as u16 as i16;
+            let mocomp_pixel = output[x + (y * output_samples_per_line)] as u16 as i16;
 
-            output[x + (y * samples_per_line)] = min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
+            output[x + (y * output_samples_per_line)] =
+                min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
         }
     }
 }

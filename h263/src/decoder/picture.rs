@@ -22,12 +22,15 @@ pub struct DecodedPicture {
 
 impl DecodedPicture {
     /// Construct a new `DecodedPicture` for a given picture with a particular
-    /// format and size.
+    /// format.
     ///
-    /// The `size` must be equal to the format's specified size, rounded up to
-    /// the nearest macroblock.
-    pub fn new(picture_header: Picture, format: SourceFormat, size: (usize, usize)) -> Self {
-        let (w, h) = size;
+    /// The decoded picture will be created with luma and chroma buffers large
+    /// enough to hold the dimensions indicated by `format`. These can be any
+    /// size; and should not be rounded up to the next macroblock.
+    ///
+    /// Invalid source formats will fail to generate a decoded picture.
+    pub fn new(picture_header: Picture, format: SourceFormat) -> Option<Self> {
+        let (w, h) = format.into_width_and_height()?;
         let luma_samples = w as usize * h as usize;
         let mut luma = Vec::new();
         luma.resize(luma_samples, 0);
@@ -38,13 +41,13 @@ impl DecodedPicture {
         let mut chroma_r = Vec::new();
         chroma_r.resize(chroma_samples, 0);
 
-        Self {
+        Some(Self {
             picture_header,
             format,
             luma,
             chroma_b,
             chroma_r,
-        }
+        })
     }
 
     /// Get the header this picture was decoded with.
