@@ -70,6 +70,14 @@ fn gather_block(
 
     for (i, u) in (x..min(x + 8, samples_per_row as isize)).enumerate() {
         for (j, v) in (y..min(y + 8, array_height as isize)).enumerate() {
+            if (pos.0 + i) >= samples_per_row {
+                continue;
+            }
+
+            if (pos.1 + j) >= array_height {
+                continue;
+            }
+
             let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
             let sample_1_0 = read_sample(pixel_array, samples_per_row, (u + 1, v));
             let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));
