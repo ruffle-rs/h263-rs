@@ -700,11 +700,11 @@ impl HalfPel {
     }
 
     /// Separate the half-pixel into a whole part and a fractional part.
-    pub fn into_whole_and_fractional(self) -> (i16, f32) {
+    pub fn into_whole_and_fractional(self) -> (i16, bool) {
         if self.0 % 2 == 0 {
-            (self.0 / 2, 0.0)
+            (self.0 / 2, false)
         } else {
-            (self.0 / 2, 0.5)
+            (self.0 / 2, true)
         }
     }
 
@@ -811,7 +811,7 @@ impl MotionVector {
         Self(HalfPel::zero(), HalfPel::zero())
     }
 
-    pub fn into_whole_and_fractional(self) -> ((i16, f32), (i16, f32)) {
+    pub fn into_whole_and_fractional(self) -> ((i16, bool), (i16, bool)) {
         (
             self.0.into_whole_and_fractional(),
             self.1.into_whole_and_fractional(),

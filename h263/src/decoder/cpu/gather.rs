@@ -42,8 +42,8 @@ fn read_sample(pixel_array: &[u8], samples_per_row: usize, pos: (isize, isize)) 
 }
 
 /// Linear interpolation between two values by 0 or 50%.
-fn lerp(sample_a: u8, sample_b: u8, amount_b: f32) -> u8 {
-    if amount_b > 0.0 {
+fn lerp(sample_a: u8, sample_b: u8, middle: bool) -> u8 {
+    if middle {
         ((sample_a as u16 + sample_b as u16 + 1) / 2) as u8
     } else {
         sample_a
@@ -79,9 +79,21 @@ fn gather_block(
             }
 
             let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
-            let sample_1_0 = read_sample(pixel_array, samples_per_row, (u + 1, v));
-            let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));
-            let sample_1_1 = read_sample(pixel_array, samples_per_row, (u + 1, v + 1));
+            let sample_1_0 = read_sample(
+                pixel_array,
+                samples_per_row,
+                (u + x_delta.signum() as isize, v),
+            );
+            let sample_0_1 = read_sample(
+                pixel_array,
+                samples_per_row,
+                (u, v + y_delta.signum() as isize),
+            );
+            let sample_1_1 = read_sample(
+                pixel_array,
+                samples_per_row,
+                (u + x_delta.signum() as isize, v + y_delta.signum() as isize),
+            );
 
             let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
             let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
