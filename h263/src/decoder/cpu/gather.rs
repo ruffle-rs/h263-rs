@@ -1,6 +1,5 @@
 //! Intra block data collection
 
-use crate::decoder::macroblock::DecodedMacroblock;
 use crate::decoder::picture::DecodedPicture;
 use crate::error::Error;
 use crate::types::{MacroblockType, MotionVector};
@@ -58,9 +57,9 @@ fn lerp(sample_a: u8, sample_b: u8, amount_b: f32) -> u8 {
 fn gather_block(
     pixel_array: &[u8],
     samples_per_row: usize,
-    pos: (u16, u16),
+    pos: (usize, usize),
     mv: MotionVector,
-    target: &mut [u8; 64],
+    target: &mut [u8],
 ) {
     let ((x_delta, x_interp), (y_delta, y_interp)) = mv.into_whole_and_fractional();
 
@@ -77,13 +76,17 @@ fn gather_block(
             let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
             let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
 
-            target[i + (j * 8)] = lerp(sample_mid_0, sample_mid_1, y_interp);
+            target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
+                lerp(sample_mid_0, sample_mid_1, y_interp);
         }
     }
 }
 
-/// Copy macroblock data from a previously decoded reference picture into
-/// blocks.
+/// Copy pixels from a previously decoded reference picture into a new picture.
+///
+/// This function works on the entire picture's macroblocks as a batch. You
+/// will need to provide a list of macroblock types, each macroblock's motion
+/// vectors,
 ///
 /// For `INTER` coded macroblocks, the gather process performs motion
 /// compensation using the reference picture to produce the block data to be
@@ -92,67 +95,66 @@ fn gather_block(
 /// For `INTRA` coded macroblocks, the returned set of blocks will be all
 /// zeroes.
 pub fn gather(
-    mb_type: MacroblockType,
+    mb_types: &[MacroblockType],
     reference_picture: Option<&DecodedPicture>,
-    pos: (u16, u16),
-    mv: [MotionVector; 4],
-) -> Result<DecodedMacroblock, Error> {
-    let mut dmb = DecodedMacroblock::new();
-    if mb_type.is_inter() && reference_picture.is_none() {
-        return Ok(dmb);
+    mvs: &[[MotionVector; 4]],
+    mb_per_line: usize,
+    new_picture: &mut DecodedPicture,
+) -> Result<(), Error> {
+    for (i, (mb_type, mv)) in mb_types.iter().zip(mvs.iter()).enumerate() {
+        if mb_type.is_inter() {
+            let reference_picture = reference_picture.ok_or(Error::UncodedIFrameBlocks)?;
+            let luma_samples_per_row = reference_picture.luma_samples_per_row();
+            let pos = ((i % mb_per_line) * 16, (i / mb_per_line) * 16);
+
+            gather_block(
+                reference_picture.as_luma(),
+                luma_samples_per_row,
+                pos,
+                mv[0],
+                new_picture.as_luma_mut(),
+            );
+            gather_block(
+                reference_picture.as_luma(),
+                luma_samples_per_row,
+                (pos.0 + 8, pos.1),
+                mv[1],
+                new_picture.as_luma_mut(),
+            );
+            gather_block(
+                reference_picture.as_luma(),
+                luma_samples_per_row,
+                (pos.0, pos.1 + 8),
+                mv[2],
+                new_picture.as_luma_mut(),
+            );
+            gather_block(
+                reference_picture.as_luma(),
+                luma_samples_per_row,
+                (pos.0 + 8, pos.1 + 8),
+                mv[3],
+                new_picture.as_luma_mut(),
+            );
+
+            let mv_chr = (mv[0] + mv[1] + mv[2] + mv[3]).average_sum_of_mvs();
+            let chroma_samples_per_row = reference_picture.chroma_samples_per_row();
+
+            gather_block(
+                reference_picture.as_chroma_b(),
+                chroma_samples_per_row,
+                (pos.0 / 2, pos.1 / 2),
+                mv_chr,
+                new_picture.as_chroma_b_mut(),
+            );
+            gather_block(
+                reference_picture.as_chroma_r(),
+                chroma_samples_per_row,
+                (pos.0 / 2, pos.1 / 2),
+                mv_chr,
+                new_picture.as_chroma_r_mut(),
+            );
+        }
     }
 
-    if mb_type.is_inter() {
-        let reference_picture = reference_picture.ok_or(Error::UncodedIFrameBlocks)?;
-        let luma_samples_per_row = reference_picture.luma_samples_per_row();
-
-        gather_block(
-            reference_picture.as_luma(),
-            luma_samples_per_row,
-            pos,
-            mv[0],
-            dmb.luma_mut(0),
-        );
-        gather_block(
-            reference_picture.as_luma(),
-            luma_samples_per_row,
-            (pos.0 + 8, pos.1),
-            mv[1],
-            dmb.luma_mut(1),
-        );
-        gather_block(
-            reference_picture.as_luma(),
-            luma_samples_per_row,
-            (pos.0, pos.1 + 8),
-            mv[2],
-            dmb.luma_mut(2),
-        );
-        gather_block(
-            reference_picture.as_luma(),
-            luma_samples_per_row,
-            (pos.0 + 8, pos.1 + 8),
-            mv[3],
-            dmb.luma_mut(3),
-        );
-
-        let mv_chr = (mv[0] + mv[1] + mv[2] + mv[3]).average_sum_of_mvs();
-        let chroma_samples_per_row = reference_picture.chroma_samples_per_row();
-
-        gather_block(
-            reference_picture.as_chroma_b(),
-            chroma_samples_per_row,
-            (pos.0 / 2, pos.1 / 2),
-            mv_chr,
-            dmb.chroma_b_mut(),
-        );
-        gather_block(
-            reference_picture.as_chroma_r(),
-            chroma_samples_per_row,
-            (pos.0 / 2, pos.1 / 2),
-            mv_chr,
-            dmb.chroma_r_mut(),
-        );
-    }
-
-    Ok(dmb)
+    Ok(())
 }

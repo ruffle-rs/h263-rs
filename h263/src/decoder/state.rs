@@ -1,6 +1,6 @@
 //! H.263 decoder core
 
-use crate::decoder::cpu::{gather, idct_block, inverse_rle, mv_decode, predict_candidate, scatter};
+use crate::decoder::cpu::{gather, idct_channel, inverse_rle, mv_decode, predict_candidate};
 use crate::decoder::picture::DecodedPicture;
 use crate::decoder::types::DecoderOption;
 use crate::error::{Error, Result};
@@ -157,18 +157,25 @@ impl H263State {
 
             let reference_picture = self.get_reference_picture();
 
-            let mut next_decoded_picture =
-                DecodedPicture::new(next_picture, format).ok_or(Error::PictureFormatInvalid)?;
-            let mut in_force_quantizer = next_decoded_picture.as_header().quantizer;
-            let mut predictor_vectors = Vec::new(); // all previously decoded MVDs
-            let mut encountered_macroblocks = 0;
-            let mb_per_line = (next_decoded_picture
-                .format()
+            let dimensions = format
                 .into_width_and_height()
-                .unwrap()
-                .0 as f64
-                / 16.0)
-                .ceil() as usize;
+                .ok_or(Error::PictureFormatInvalid)?;
+
+            let mb_per_line = (dimensions.0 as f64 / 16.0).ceil() as usize;
+            let mb_height = (dimensions.1 as f64 / 16.0).ceil() as usize;
+
+            let dimensions = (mb_per_line * 16, mb_height * 16);
+
+            let mut in_force_quantizer = next_picture.quantizer;
+            let mut predictor_vectors = Vec::with_capacity(mb_per_line * mb_height); // all previously decoded MVDs
+            let mut macroblock_types = Vec::with_capacity(mb_per_line * mb_height);
+            let mut macroblocks_after_gob = 0; //reset after every GOB header
+
+            let mut next_decoded_picture = DecodedPicture::new(next_picture, format, dimensions);
+
+            let mut luma_levels = vec![0; next_decoded_picture.as_luma().len()];
+            let mut chroma_b_levels = vec![0; next_decoded_picture.as_chroma_b().len()];
+            let mut chroma_r_levels = vec![0; next_decoded_picture.as_chroma_r().len()];
 
             loop {
                 let mb = decode_macroblock(
@@ -177,12 +184,12 @@ impl H263State {
                     next_running_options,
                 );
                 let pos = (
-                    (encountered_macroblocks % mb_per_line) as u16 * 16,
-                    (encountered_macroblocks / mb_per_line) as u16 * 16,
+                    (macroblock_types.len() % mb_per_line) * 16,
+                    (macroblock_types.len() / mb_per_line) * 16,
                 );
                 let mut motion_vectors = [MotionVector::zero(); 4];
 
-                match mb {
+                let mb_type = match mb {
                     Ok(Macroblock::Stuffing) => continue,
                     Ok(Macroblock::Uncoded) => {
                         if matches!(
@@ -192,13 +199,7 @@ impl H263State {
                             return Err(Error::UncodedIFrameBlocks);
                         }
 
-                        let macroblock = gather(
-                            MacroblockType::Inter,
-                            reference_picture,
-                            pos,
-                            motion_vectors,
-                        )?;
-                        scatter(&mut next_decoded_picture, macroblock, pos);
+                        MacroblockType::Inter
                     }
                     Ok(Macroblock::Coded {
                         mb_type,
@@ -215,7 +216,7 @@ impl H263State {
                         if mb_type.is_inter() {
                             let mv1 = motion_vector.unwrap_or_else(MotionVector::zero);
                             let mpred1 = predict_candidate(
-                                &predictor_vectors[..],
+                                &predictor_vectors[macroblocks_after_gob..],
                                 &motion_vectors,
                                 mb_per_line,
                                 0,
@@ -226,7 +227,7 @@ impl H263State {
 
                             if let Some([mv2, mv3, mv4]) = addl_motion_vectors {
                                 let mpred2 = predict_candidate(
-                                    &predictor_vectors[..],
+                                    &predictor_vectors[macroblocks_after_gob..],
                                     &motion_vectors,
                                     mb_per_line,
                                     1,
@@ -239,7 +240,7 @@ impl H263State {
                                 );
 
                                 let mpred3 = predict_candidate(
-                                    &predictor_vectors[..],
+                                    &predictor_vectors[macroblocks_after_gob..],
                                     &motion_vectors,
                                     mb_per_line,
                                     2,
@@ -252,7 +253,7 @@ impl H263State {
                                 );
 
                                 let mpred4 = predict_candidate(
-                                    &predictor_vectors[..],
+                                    &predictor_vectors[macroblocks_after_gob..],
                                     &motion_vectors,
                                     mb_per_line,
                                     3,
@@ -270,10 +271,6 @@ impl H263State {
                             };
                         };
 
-                        let mut macroblock =
-                            gather(mb_type, reference_picture, pos, motion_vectors)?;
-                        let mut levels = [0; 64];
-
                         let luma0 = decode_block(
                             reader,
                             self.decoder_options,
@@ -282,8 +279,13 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[0],
                         )?;
-                        inverse_rle(&luma0, &mut levels, in_force_quantizer);
-                        idct_block(&levels, macroblock.luma_mut(0));
+                        inverse_rle(
+                            &luma0,
+                            &mut luma_levels,
+                            pos,
+                            dimensions.0,
+                            in_force_quantizer,
+                        );
 
                         let luma1 = decode_block(
                             reader,
@@ -293,8 +295,13 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[1],
                         )?;
-                        inverse_rle(&luma1, &mut levels, in_force_quantizer);
-                        idct_block(&levels, macroblock.luma_mut(1));
+                        inverse_rle(
+                            &luma1,
+                            &mut luma_levels,
+                            (pos.0 + 8, pos.1),
+                            dimensions.0,
+                            in_force_quantizer,
+                        );
 
                         let luma2 = decode_block(
                             reader,
@@ -304,8 +311,13 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[2],
                         )?;
-                        inverse_rle(&luma2, &mut levels, in_force_quantizer);
-                        idct_block(&levels, macroblock.luma_mut(2));
+                        inverse_rle(
+                            &luma2,
+                            &mut luma_levels,
+                            (pos.0, pos.1 + 8),
+                            dimensions.0,
+                            in_force_quantizer,
+                        );
 
                         let luma3 = decode_block(
                             reader,
@@ -315,8 +327,13 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_luma[3],
                         )?;
-                        inverse_rle(&luma3, &mut levels, in_force_quantizer);
-                        idct_block(&levels, macroblock.luma_mut(3));
+                        inverse_rle(
+                            &luma3,
+                            &mut luma_levels,
+                            (pos.0 + 8, pos.1 + 8),
+                            dimensions.0,
+                            in_force_quantizer,
+                        );
 
                         let chroma_b = decode_block(
                             reader,
@@ -326,8 +343,13 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_chroma_b,
                         )?;
-                        inverse_rle(&chroma_b, &mut levels, in_force_quantizer);
-                        idct_block(&levels, macroblock.chroma_b_mut());
+                        inverse_rle(
+                            &chroma_b,
+                            &mut chroma_b_levels,
+                            (pos.0 / 2, pos.1 / 2),
+                            dimensions.0 / 2,
+                            in_force_quantizer,
+                        );
 
                         let chroma_r = decode_block(
                             reader,
@@ -337,10 +359,15 @@ impl H263State {
                             mb_type,
                             coded_block_pattern.codes_chroma_r,
                         )?;
-                        inverse_rle(&chroma_r, &mut levels, in_force_quantizer);
-                        idct_block(&levels, macroblock.chroma_r_mut());
+                        inverse_rle(
+                            &chroma_r,
+                            &mut chroma_r_levels,
+                            (pos.0 / 2, pos.1 / 2),
+                            dimensions.0 / 2,
+                            in_force_quantizer,
+                        );
 
-                        scatter(&mut next_decoded_picture, macroblock, pos);
+                        mb_type
                     }
 
                     //Attempt to recover from macroblock errors if possible
@@ -357,7 +384,7 @@ impl H263State {
                                 quantizer,
                             })) => {
                                 in_force_quantizer = quantizer;
-                                predictor_vectors = Vec::new();
+                                macroblocks_after_gob = macroblock_types.len();
                                 continue;
                             }
 
@@ -370,11 +397,37 @@ impl H263State {
                     //Treat EOF errors as end of picture
                     Err(ref e) if e.is_eof_error() => break,
                     Err(e) => return Err(e),
-                }
+                };
 
                 predictor_vectors.push(motion_vectors);
-                encountered_macroblocks += 1;
+                macroblock_types.push(mb_type);
             }
+
+            //We have now read out all of the macroblock and block data and
+            //queued it up into the various internal buffers we allocated for
+            //this purpose. Time to decode it all in one go.
+            gather(
+                &macroblock_types,
+                reference_picture,
+                &predictor_vectors,
+                mb_per_line,
+                &mut next_decoded_picture,
+            )?;
+            idct_channel(
+                &luma_levels,
+                next_decoded_picture.as_luma_mut(),
+                dimensions.0,
+            );
+            idct_channel(
+                &chroma_b_levels,
+                next_decoded_picture.as_chroma_b_mut(),
+                dimensions.0 / 2,
+            );
+            idct_channel(
+                &chroma_r_levels,
+                next_decoded_picture.as_chroma_r_mut(),
+                dimensions.0 / 2,
+            );
 
             //At this point, all decoding should be complete, and we should
             //have a fresh picture to put into the reference pile. We treat YUV

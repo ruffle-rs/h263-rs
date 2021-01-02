@@ -1,7 +1,6 @@
 //! H.263 video decoder.
 
 mod cpu;
-mod macroblock;
 mod picture;
 mod state;
 mod types;
