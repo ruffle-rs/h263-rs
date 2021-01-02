@@ -1,7 +1,33 @@
 //! Inverse discrete cosine transform
 
+use lazy_static::lazy_static;
 use std::cmp::{max, min};
 use std::f32::consts::PI;
+
+/// The 1D basis function of the H.263 IDCT.
+///
+/// `spatial` is the spatial-domain position of the basis function, while
+/// `freq` is the frequency-domain position the LEVEL came from.
+fn basis(spatial: f32, freq: f32) -> f32 {
+    f32::cos(PI * (2.0 * spatial + 1.0) * freq / 16.0)
+}
+
+lazy_static! {
+    /// Lookup table for `basis`.
+    ///
+    /// The outer parameter represents all valid `spatial` inputs, while the
+    /// inner represents all valid `freq` inputs.
+    static ref BASIS_TABLE : [[f32; 8]; 8] = [
+        [basis(0.0, 0.0), basis(0.0, 1.0), basis(0.0, 2.0), basis(0.0, 3.0),basis(0.0, 4.0),basis(0.0, 5.0),basis(0.0, 6.0),basis(0.0, 7.0)],
+        [basis(1.0, 0.0), basis(1.0, 1.0), basis(1.0, 2.0), basis(1.0, 3.0),basis(1.0, 4.0),basis(1.0, 5.0),basis(1.0, 6.0),basis(1.0, 7.0)],
+        [basis(2.0, 0.0), basis(2.0, 1.0), basis(2.0, 2.0), basis(2.0, 3.0),basis(2.0, 4.0),basis(2.0, 5.0),basis(2.0, 6.0),basis(2.0, 7.0)],
+        [basis(3.0, 0.0), basis(3.0, 1.0), basis(3.0, 2.0), basis(3.0, 3.0),basis(3.0, 4.0),basis(3.0, 5.0),basis(3.0, 6.0),basis(3.0, 7.0)],
+        [basis(4.0, 0.0), basis(4.0, 1.0), basis(4.0, 2.0), basis(4.0, 3.0),basis(4.0, 4.0),basis(4.0, 5.0),basis(4.0, 6.0),basis(4.0, 7.0)],
+        [basis(5.0, 0.0), basis(5.0, 1.0), basis(5.0, 2.0), basis(5.0, 3.0),basis(5.0, 4.0),basis(5.0, 5.0),basis(5.0, 6.0),basis(5.0, 7.0)],
+        [basis(6.0, 0.0), basis(6.0, 1.0), basis(6.0, 2.0), basis(6.0, 3.0),basis(6.0, 4.0),basis(6.0, 5.0),basis(6.0, 6.0),basis(6.0, 7.0)],
+        [basis(7.0, 0.0), basis(7.0, 1.0), basis(7.0, 2.0), basis(7.0, 3.0),basis(7.0, 4.0),basis(7.0, 5.0),basis(7.0, 6.0),basis(7.0, 7.0)],
+    ];
+}
 
 /// Given a list of reconstructed IDCT levels, transform it out of the
 /// frequency domain.
@@ -39,8 +65,8 @@ pub fn idct_channel(
                     let cu = if u == 0 { 1.0 / f32::sqrt(2.0) } else { 1.0 };
                     let cv = if v == 0 { 1.0 / f32::sqrt(2.0) } else { 1.0 };
 
-                    let cosx = f32::cos(PI * (2.0 * (x - x_base) as f32 + 1.0) * u as f32 / 16.0);
-                    let cosy = f32::cos(PI * (2.0 * (y - y_base) as f32 + 1.0) * v as f32 / 16.0);
+                    let cosx = BASIS_TABLE[x - x_base][u];
+                    let cosy = BASIS_TABLE[y - y_base][v];
 
                     sum += cu * cv * coeff as f32 * cosx * cosy;
                 }
