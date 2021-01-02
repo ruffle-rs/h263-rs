@@ -2,7 +2,7 @@
 
 use lazy_static::lazy_static;
 use std::cmp::{max, min};
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_1_SQRT_2, PI};
 
 /// The 1D basis function of the H.263 IDCT.
 ///
@@ -62,8 +62,8 @@ pub fn idct_channel(
                 for u in 0..8 {
                     let coeff = block_levels[x_base + u + ((y_base + v) * samples_per_line)];
 
-                    let cu = if u == 0 { 1.0 / f32::sqrt(2.0) } else { 1.0 };
-                    let cv = if v == 0 { 1.0 / f32::sqrt(2.0) } else { 1.0 };
+                    let cu = if u == 0 { FRAC_1_SQRT_2 } else { 1.0 };
+                    let cv = if v == 0 { FRAC_1_SQRT_2 } else { 1.0 };
 
                     let cosx = BASIS_TABLE[x - x_base][u];
                     let cosy = BASIS_TABLE[y - y_base][v];
