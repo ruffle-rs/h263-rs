@@ -174,9 +174,11 @@ impl H263State {
             let mut next_decoded_picture =
                 DecodedPicture::new(next_picture, format).ok_or(Error::PictureFormatInvalid)?;
 
-            let mut luma_levels = vec![0; level_dimensions.0 * level_dimensions.1];
-            let mut chroma_b_levels = vec![0; level_dimensions.0 * level_dimensions.1 / 4];
-            let mut chroma_r_levels = vec![0; level_dimensions.0 * level_dimensions.1 / 4];
+            let mut luma_levels = vec![[[0.0; 8]; 8]; level_dimensions.0 * level_dimensions.1 / 64];
+            let mut chroma_b_levels =
+                vec![[[0.0; 8]; 8]; level_dimensions.0 * level_dimensions.1 / 4 / 64];
+            let mut chroma_r_levels =
+                vec![[[0.0; 8]; 8]; level_dimensions.0 * level_dimensions.1 / 4 / 64];
 
             loop {
                 let mb = decode_macroblock(
@@ -284,7 +286,7 @@ impl H263State {
                             &luma0,
                             &mut luma_levels,
                             pos,
-                            level_dimensions.0,
+                            level_dimensions.0 / 8,
                             in_force_quantizer,
                         );
 
@@ -300,7 +302,7 @@ impl H263State {
                             &luma1,
                             &mut luma_levels,
                             (pos.0 + 8, pos.1),
-                            level_dimensions.0,
+                            level_dimensions.0 / 8,
                             in_force_quantizer,
                         );
 
@@ -316,7 +318,7 @@ impl H263State {
                             &luma2,
                             &mut luma_levels,
                             (pos.0, pos.1 + 8),
-                            level_dimensions.0,
+                            level_dimensions.0 / 8,
                             in_force_quantizer,
                         );
 
@@ -332,7 +334,7 @@ impl H263State {
                             &luma3,
                             &mut luma_levels,
                             (pos.0 + 8, pos.1 + 8),
-                            level_dimensions.0,
+                            level_dimensions.0 / 8,
                             in_force_quantizer,
                         );
 
@@ -348,7 +350,7 @@ impl H263State {
                             &chroma_b,
                             &mut chroma_b_levels,
                             (pos.0 / 2, pos.1 / 2),
-                            level_dimensions.0 / 2,
+                            mb_per_line,
                             in_force_quantizer,
                         );
 
@@ -364,7 +366,7 @@ impl H263State {
                             &chroma_r,
                             &mut chroma_r_levels,
                             (pos.0 / 2, pos.1 / 2),
-                            level_dimensions.0 / 2,
+                            mb_per_line,
                             in_force_quantizer,
                         );
 
@@ -417,19 +419,19 @@ impl H263State {
             idct_channel(
                 &luma_levels,
                 next_decoded_picture.as_luma_mut(),
-                level_dimensions.0,
+                mb_per_line * 2,
                 (output_dimensions.0).into(),
             );
             idct_channel(
                 &chroma_b_levels,
                 next_decoded_picture.as_chroma_b_mut(),
-                level_dimensions.0 / 2,
+                mb_per_line,
                 (output_dimensions.0 / 2).into(),
             );
             idct_channel(
                 &chroma_r_levels,
                 next_decoded_picture.as_chroma_r_mut(),
-                level_dimensions.0 / 2,
+                mb_per_line,
                 (output_dimensions.0 / 2).into(),
             );
 

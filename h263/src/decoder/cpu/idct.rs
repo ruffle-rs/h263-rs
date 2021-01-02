@@ -2,6 +2,7 @@
 
 use lazy_static::lazy_static;
 use std::cmp::{max, min};
+use std::convert::TryInto;
 use std::f32::consts::{FRAC_1_SQRT_2, PI};
 
 /// The 1D basis function of the H.263 IDCT.
@@ -27,6 +28,17 @@ lazy_static! {
         [basis(6.0, 0.0), basis(6.0, 1.0), basis(6.0, 2.0), basis(6.0, 3.0),basis(6.0, 4.0),basis(6.0, 5.0),basis(6.0, 6.0),basis(6.0, 7.0)],
         [basis(7.0, 0.0), basis(7.0, 1.0), basis(7.0, 2.0), basis(7.0, 3.0),basis(7.0, 4.0),basis(7.0, 5.0),basis(7.0, 6.0),basis(7.0, 7.0)],
     ];
+
+    static ref CUV_TABLE : [[f32; 8]; 8] = [
+        [FRAC_1_SQRT_2 * FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2],
+        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    ];
 }
 
 /// Given a list of reconstructed IDCT levels, transform it out of the
@@ -45,39 +57,44 @@ lazy_static! {
 /// step can happen simultaneously. Otherwise, you should provide an array of
 /// zeroes.
 pub fn idct_channel(
-    block_levels: &[i16],
+    block_levels: &[[[f32; 8]; 8]],
     output: &mut [u8],
-    samples_per_line: usize,
+    blk_per_line: usize,
     output_samples_per_line: usize,
 ) {
     let output_height = output.len() / output_samples_per_line;
     let basis_table = *BASIS_TABLE;
+    let cuv_table = *CUV_TABLE;
 
-    for y in 0..output_height {
-        for x in 0..output_samples_per_line {
-            let mut sum = 0.0;
-            let x_base = x & !0x7;
-            let y_base = y & !0x7;
+    for y_base in 0..output_height / 8 {
+        for x_base in 0..output_samples_per_line / 8 {
+            let block_id = x_base + (y_base * blk_per_line);
+            let block = &block_levels[block_id];
 
-            for v in 0..8 {
-                for u in 0..8 {
-                    let coeff = block_levels[x_base + u + ((y_base + v) * samples_per_line)];
+            for y_offset in 0..8 {
+                for x_offset in 0..8 {
+                    let x = x_base * 8 + x_offset;
+                    let y = y_base * 8 + y_offset;
+                    let mut sum = 0.0;
 
-                    let cu = if u == 0 { FRAC_1_SQRT_2 } else { 1.0 };
-                    let cv = if v == 0 { FRAC_1_SQRT_2 } else { 1.0 };
+                    for (u, coeff_line) in block.iter().enumerate() {
+                        for (v, coeff) in coeff_line.iter().enumerate() {
+                            let cuv = cuv_table[u][v];
 
-                    let cosx = basis_table[x - x_base][u];
-                    let cosy = basis_table[y - y_base][v];
+                            let cosx = basis_table[x_offset][u];
+                            let cosy = basis_table[y_offset][v];
 
-                    sum += cu * cv * coeff as f32 * cosx * cosy;
+                            sum += cuv * *coeff * cosx * cosy;
+                        }
+                    }
+
+                    let clipped_sum = min(255, max(-256, (sum / 4.0) as i16));
+                    let mocomp_pixel = output[x + (y * output_samples_per_line)] as u16 as i16;
+
+                    output[x + (y * output_samples_per_line)] =
+                        min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
                 }
             }
-
-            let clipped_sum = min(255, max(-256, (sum / 4.0) as i16));
-            let mocomp_pixel = output[x + (y * output_samples_per_line)] as u16 as i16;
-
-            output[x + (y * output_samples_per_line)] =
-                min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
         }
     }
 }
