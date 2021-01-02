@@ -51,6 +51,7 @@ pub fn idct_channel(
     output_samples_per_line: usize,
 ) {
     let output_height = output.len() / output_samples_per_line;
+    let basis_table = *BASIS_TABLE;
 
     for y in 0..output_height {
         for x in 0..output_samples_per_line {
@@ -65,8 +66,8 @@ pub fn idct_channel(
                     let cu = if u == 0 { FRAC_1_SQRT_2 } else { 1.0 };
                     let cv = if v == 0 { FRAC_1_SQRT_2 } else { 1.0 };
 
-                    let cosx = BASIS_TABLE[x - x_base][u];
-                    let cosy = BASIS_TABLE[y - y_base][v];
+                    let cosx = basis_table[x - x_base][u];
+                    let cosy = basis_table[y - y_base][v];
 
                     sum += cu * cv * coeff as f32 * cosx * cosy;
                 }
