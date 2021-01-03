@@ -2,7 +2,6 @@
 
 use lazy_static::lazy_static;
 use std::cmp::{max, min};
-use std::convert::TryInto;
 use std::f32::consts::{FRAC_1_SQRT_2, PI};
 
 /// The 1D basis function of the H.263 IDCT.
@@ -66,9 +65,13 @@ pub fn idct_channel(
     let basis_table = *BASIS_TABLE;
     let cuv_table = *CUV_TABLE;
 
-    for y_base in 0..output_height / 8 {
-        for x_base in 0..output_samples_per_line / 8 {
+    for y_base in 0..blk_per_line {
+        for x_base in 0..=output_samples_per_line / 8 {
             let block_id = x_base + (y_base * blk_per_line);
+            if block_id >= block_levels.len() {
+                continue;
+            }
+
             let block = &block_levels[block_id];
 
             for y_offset in 0..8 {
@@ -76,6 +79,14 @@ pub fn idct_channel(
                     let x = x_base * 8 + x_offset;
                     let y = y_base * 8 + y_offset;
                     let mut sum = 0.0;
+
+                    if x >= output_samples_per_line {
+                        continue;
+                    }
+
+                    if y >= output_height {
+                        continue;
+                    }
 
                     for (u, coeff_line) in block.iter().enumerate() {
                         for (v, coeff) in coeff_line.iter().enumerate() {
