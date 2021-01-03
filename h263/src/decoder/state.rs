@@ -422,17 +422,19 @@ impl H263State {
                 mb_per_line * 2,
                 (output_dimensions.0).into(),
             );
+
+            let chroma_samples_per_row = next_decoded_picture.chroma_samples_per_row();
             idct_channel(
                 &chroma_b_levels,
                 next_decoded_picture.as_chroma_b_mut(),
                 mb_per_line,
-                (output_dimensions.0 / 2).into(),
+                chroma_samples_per_row,
             );
             idct_channel(
                 &chroma_r_levels,
                 next_decoded_picture.as_chroma_r_mut(),
                 mb_per_line,
-                (output_dimensions.0 / 2).into(),
+                chroma_samples_per_row,
             );
 
             //At this point, all decoding should be complete, and we should

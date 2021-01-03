@@ -3,7 +3,6 @@
 use crate::decoder::picture::DecodedPicture;
 use crate::error::Error;
 use crate::types::{MacroblockType, MotionVector};
-use std::cmp::min;
 
 /// Read a sample from the pixel array at a given position.
 ///
@@ -68,12 +67,12 @@ fn gather_block(
     let y = pos.1 as isize + y_delta as isize;
     let array_height = pixel_array.len() / samples_per_row;
 
-    for (i, u) in (x..min(x + 8, samples_per_row as isize)).enumerate() {
-        for (j, v) in (y..min(y + 8, array_height as isize)).enumerate() {
-            if (pos.0 + i) >= samples_per_row {
-                continue;
-            }
+    for (i, u) in (x..x + 8).enumerate() {
+        if (pos.0 + i) >= samples_per_row {
+            continue;
+        }
 
+        for (j, v) in (y..y + 8).enumerate() {
             if (pos.1 + j) >= array_height {
                 continue;
             }
@@ -148,18 +147,19 @@ pub fn gather(
 
             let mv_chr = (mv[0] + mv[1] + mv[2] + mv[3]).average_sum_of_mvs();
             let chroma_samples_per_row = reference_picture.chroma_samples_per_row();
+            let chroma_pos = ((i % mb_per_line) * 8, (i / mb_per_line) * 8);
 
             gather_block(
                 reference_picture.as_chroma_b(),
                 chroma_samples_per_row,
-                (pos.0 / 2, pos.1 / 2),
+                (chroma_pos.0, chroma_pos.1),
                 mv_chr,
                 new_picture.as_chroma_b_mut(),
             );
             gather_block(
                 reference_picture.as_chroma_r(),
                 chroma_samples_per_row,
-                (pos.0 / 2, pos.1 / 2),
+                (chroma_pos.0, chroma_pos.1),
                 mv_chr,
                 new_picture.as_chroma_r_mut(),
             );

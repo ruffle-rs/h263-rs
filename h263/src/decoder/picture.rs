@@ -18,6 +18,11 @@ pub struct DecodedPicture {
 
     /// The v-component chroma data of the decoded picture.
     chroma_r: Vec<u8>,
+
+    /// The number of chroma samples per row of data.
+    ///
+    /// May be rounded up to the nearest pixel.
+    chroma_samples_per_row: usize,
 }
 
 impl DecodedPicture {
@@ -35,7 +40,9 @@ impl DecodedPicture {
         let mut luma = Vec::new();
         luma.resize(luma_samples, 0);
 
-        let chroma_samples = luma_samples / 4;
+        let chroma_w = (w as f32 / 2.0).ceil() as usize;
+        let chroma_h = (h as f32 / 2.0).ceil() as usize;
+        let chroma_samples = chroma_w * chroma_h;
         let mut chroma_b = Vec::new();
         chroma_b.resize(chroma_samples, 0);
         let mut chroma_r = Vec::new();
@@ -47,6 +54,7 @@ impl DecodedPicture {
             luma,
             chroma_b,
             chroma_r,
+            chroma_samples_per_row: chroma_w,
         })
     }
 
@@ -86,8 +94,7 @@ impl DecodedPicture {
 
     /// Get how many chroma samples exist per row.
     pub fn chroma_samples_per_row(&self) -> usize {
-        let (w, _h) = self.format().into_width_and_height().unwrap();
-        w as usize / 2
+        self.chroma_samples_per_row
     }
 
     /// Get the chroma-B data for this picture.

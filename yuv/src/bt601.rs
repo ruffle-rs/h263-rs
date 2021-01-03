@@ -21,9 +21,14 @@ fn clamp(v: f32) -> u8 {
 /// This function yields an RGBA picture with the same number of pixels as were
 /// provided in the `y` picture. The `b` and `r` pictures will be resampled at
 /// this stage, and the resulting picture will have color components mixed.
-pub fn yuv422_to_rgba(y: &[u8], chroma_b: &[u8], chroma_r: &[u8], y_width: usize) -> Vec<u8> {
+pub fn yuv422_to_rgba(
+    y: &[u8],
+    chroma_b: &[u8],
+    chroma_r: &[u8],
+    y_width: usize,
+    br_width: usize,
+) -> Vec<u8> {
     let y_height = y.len() / y_width;
-    let br_width = y_width / 2;
 
     let mut rgba = Vec::new();
     rgba.resize(y.len() * 4, 0);
