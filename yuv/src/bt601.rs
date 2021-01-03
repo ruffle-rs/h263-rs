@@ -16,12 +16,12 @@ fn clamp(v: f32) -> u8 {
     v as u8
 }
 
-/// Convert BT.601 YUV 4:2:2 data into RGB 1:1:1 data.
+/// Convert YUV 4:2:0 data into RGB 1:1:1 data.
 ///
 /// This function yields an RGBA picture with the same number of pixels as were
 /// provided in the `y` picture. The `b` and `r` pictures will be resampled at
 /// this stage, and the resulting picture will have color components mixed.
-pub fn yuv422_to_rgba(
+pub fn yuv420_to_rgba(
     y: &[u8],
     chroma_b: &[u8],
     chroma_r: &[u8],
