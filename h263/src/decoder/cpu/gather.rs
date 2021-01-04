@@ -82,11 +82,24 @@ fn gather_block(
             let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));
             let sample_1_1 = read_sample(pixel_array, samples_per_row, (u + 1, v + 1));
 
-            let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
-            let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
+            if x_interp && y_interp {
+                // special case to only round once
 
-            target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
-                lerp(sample_mid_0, sample_mid_1, y_interp);
+                let sample = ((sample_0_0 as u16
+                    + sample_1_0 as u16
+                    + sample_0_1 as u16
+                    + sample_1_1 as u16
+                    + 2) // for proper rounding
+                    / 4) as u8;
+
+                target[pos.0 + i + ((pos.1 + j) * samples_per_row)] = sample;
+            } else {
+                let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
+                let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
+
+                target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
+                    lerp(sample_mid_0, sample_mid_1, y_interp);
+            }
         }
     }
 }
