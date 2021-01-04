@@ -13,7 +13,7 @@ fn clamp(v: f32) -> u8 {
         return 255;
     }
 
-    v as u8
+    v.round() as u8
 }
 
 /// Convert YUV 4:2:0 data into RGB 1:1:1 data.
