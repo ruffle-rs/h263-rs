@@ -99,7 +99,7 @@ pub fn idct_channel(
                         }
                     }
 
-                    let clipped_sum = min(255, max(-256, (sum / 4.0).round() as i16));
+                    let clipped_sum = min(255, max(-256, (sum / 4.0 + sum.signum() * 0.5) as i16));
                     let mocomp_pixel = output[x + (y * output_samples_per_line)] as u16 as i16;
 
                     output[x + (y * output_samples_per_line)] =
