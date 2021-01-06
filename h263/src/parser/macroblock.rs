@@ -1,5 +1,7 @@
 //! Macroblock decoding
 
+#![allow(clippy::unusual_byte_groupings)]
+
 use crate::error::{Error, Result};
 use crate::parser::reader::H263Reader;
 use crate::parser::vlc::{Entry, Entry::End, Entry::Fork};

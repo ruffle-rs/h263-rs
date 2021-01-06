@@ -111,7 +111,7 @@ where
             }
 
             let byte = byte << bits_read;
-            let bits_in_byte = (8 as u32).saturating_sub(bits_read as u32);
+            let bits_in_byte = (8_u32).saturating_sub(bits_read as u32);
 
             let bits_to_shift_in = min(bits_in_byte, bits_needed);
 

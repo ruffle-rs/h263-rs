@@ -1,5 +1,7 @@
 //! Block decoding
 
+#![allow(clippy::unusual_byte_groupings)]
+
 use crate::decoder::DecoderOption;
 use crate::error::{Error, Result};
 use crate::parser::reader::H263Reader;
