@@ -33,18 +33,15 @@ lazy_static! {
 
 /// Performs a one-dimensional IDCT on the input, using some lookup tables
 /// for the scaling of the DC component, and for the cosine values to be used.
-fn idct_1d(input: &[f32; 8], cuv_table: &[f32; 8], basis_table: &[[f32; 8]; 8]) -> [f32; 8] {
-    let mut result = [0.0; 8];
-
+fn idct_1d(input: &[f32; 8], output: &mut [f32; 8], cuv_table: &[f32; 8], basis_table: &[[f32; 8]; 8]) {
+    *output = [0.0; 8];
     for freq in 0..8 {
         let cuv = cuv_table[freq];
         for i in 0..8 {
             let cos = basis_table[freq][i];
-            result[i] += input[freq] * cos * cuv;
+            output[i] += input[freq] * cos * cuv;
         }
     }
-
-    result
 }
 
 /// Given a list of reconstructed IDCT levels, transform it out of the
@@ -72,6 +69,11 @@ pub fn idct_channel(
     let basis_table = *BASIS_TABLE;
     let cuv_table = *CUV_TABLE;
 
+    // Taking advantage of the separability of the 2D IDCT, and
+    // decomposing it into two subsequent orthogonal series of 1D IDCTs.
+    let mut idct_intermediate: [[f32; 8]; 8] = [[0.0; 8]; 8];
+    let mut idct_output: [[f32; 8]; 8] = [[0.0; 8]; 8];
+
     for y_base in 0..blk_per_line {
         for x_base in 0..=output_samples_per_line / 8 {
             let block_id = x_base + (y_base * blk_per_line);
@@ -81,21 +83,15 @@ pub fn idct_channel(
 
             let block = &block_levels[block_id];
 
-            // Taking advantage of the separability of the 2D IDCT, and
-            // decomposing it into two subsequent orthogonal series of 1D IDCTs.
-            let mut idct_intermediate: [[f32; 8]; 8] = [[0.0; 8]; 8];
-            let mut idct_output: [[f32; 8]; 8] = [[0.0; 8]; 8];
-
             for row in 0..8 {
-                let transformed = idct_1d(&block[row], &cuv_table, &basis_table);
+                idct_1d(&block[row], &mut idct_output[row], &cuv_table, &basis_table);
                 for i in 0..8 {
-                    idct_intermediate[i][row] = transformed[i]; // there is a transposition here
+                    idct_intermediate[i][row] = idct_output[row][i]; // there is a transposition here
                 }
             }
 
             for row in 0..8 {
-                let transformed = idct_1d(&idct_intermediate[row], &cuv_table, &basis_table);
-                idct_output[row] = transformed;
+                idct_1d(&idct_intermediate[row], &mut idct_output[row], &cuv_table, &basis_table);
             }
 
             for y_offset in 0..8 {
