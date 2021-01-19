@@ -6,10 +6,10 @@ use std::f32::consts::{FRAC_1_SQRT_2, PI};
 
 /// The 1D basis function of the H.263 IDCT.
 ///
-/// `spatial` is the spatial-domain position of the basis function, while
-/// `freq` is the frequency-domain position the LEVEL came from.
-fn basis(spatial: f32, freq: f32) -> f32 {
-    f32::cos(PI * (2.0 * spatial + 1.0) * freq / 16.0)
+/// `freq` is the frequency of the component
+/// `x` is the point at which the cosine is to be computed
+fn basis(freq: f32, x: f32) -> f32 {
+    f32::cos(PI * ((x as f32 + 0.5) / 8.0) * freq as f32)
 }
 
 lazy_static! {
@@ -28,16 +28,23 @@ lazy_static! {
         [basis(7.0, 0.0), basis(7.0, 1.0), basis(7.0, 2.0), basis(7.0, 3.0),basis(7.0, 4.0),basis(7.0, 5.0),basis(7.0, 6.0),basis(7.0, 7.0)],
     ];
 
-    static ref CUV_TABLE : [[f32; 8]; 8] = [
-        [0.5, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2],
-        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    ];
+    static ref CUV_TABLE : [f32; 8] = [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+}
+
+/// Performs a one-dimensional IDCT on the input, using some lookup tables
+/// for the scaling of the DC component, and for the cosine values to be used.
+fn idct_1d(input: &[f32; 8], cuv_table: &[f32; 8], basis_table: &[[f32; 8]; 8]) -> [f32; 8] {
+    let mut result = [0.0; 8];
+
+    for freq in 0..8 {
+        let cuv = cuv_table[freq];
+        for i in 0..8 {
+            let cos = basis_table[freq][i];
+            result[i] += input[freq] * cos * cuv;
+        }
+    }
+
+    result
 }
 
 /// Given a list of reconstructed IDCT levels, transform it out of the
@@ -74,11 +81,27 @@ pub fn idct_channel(
 
             let block = &block_levels[block_id];
 
+            // Taking advantage of the separability of the 2D IDCT, and
+            // decomposing it into two subsequent orthogonal series of 1D IDCTs.
+            let mut idct_intermediate: [[f32; 8]; 8] = [[0.0; 8]; 8];
+            let mut idct_output: [[f32; 8]; 8] = [[0.0; 8]; 8];
+
+            for row in 0..8 {
+                let transformed = idct_1d(&block[row], &cuv_table, &basis_table);
+                for i in 0..8 {
+                    idct_intermediate[i][row] = transformed[i]; // there is a transposition here
+                }
+            }
+
+            for row in 0..8 {
+                let transformed = idct_1d(&idct_intermediate[row], &cuv_table, &basis_table);
+                idct_output[row] = transformed;
+            }
+
             for y_offset in 0..8 {
                 for x_offset in 0..8 {
                     let x = x_base * 8 + x_offset;
                     let y = y_base * 8 + y_offset;
-                    let mut sum = 0.0;
 
                     if x >= output_samples_per_line {
                         continue;
@@ -88,22 +111,14 @@ pub fn idct_channel(
                         continue;
                     }
 
-                    for (u, coeff_line) in block.iter().enumerate() {
-                        for (v, coeff) in coeff_line.iter().enumerate() {
-                            let cuv = cuv_table[u][v];
+                    let idct = idct_output[y_offset][x_offset]; // transposing back to the right orientation
 
-                            let cosx = basis_table[x_offset][u];
-                            let cosy = basis_table[y_offset][v];
-
-                            sum += cuv * *coeff * cosx * cosy;
-                        }
-                    }
-
-                    let clipped_sum = min(255, max(-256, (sum / 4.0 + sum.signum() * 0.5) as i16));
+                    let clipped_idct =
+                        min(255, max(-256, (idct / 4.0 + idct.signum() * 0.5) as i16));
                     let mocomp_pixel = output[x + (y * output_samples_per_line)] as u16 as i16;
 
                     output[x + (y * output_samples_per_line)] =
-                        min(255, max(0, clipped_sum + mocomp_pixel)) as u8;
+                        min(255, max(0, clipped_idct + mocomp_pixel)) as u8;
                 }
             }
         }
