@@ -1,7 +1,9 @@
 //! Inverse discrete cosine transform
 
-use lazy_static::lazy_static;
 use std::cmp::{max, min};
+
+/*
+use lazy_static::lazy_static;
 use std::f32::consts::{FRAC_1_SQRT_2, PI};
 
 /// The 1D basis function of the H.263 IDCT.
@@ -17,8 +19,9 @@ lazy_static! {
     ///
     /// The outer parameter represents all valid `spatial` inputs, while the
     /// inner represents all valid `freq` inputs.
+    /// Already includes the former CUV_TABLE factors.
     static ref BASIS_TABLE : [[f32; 8]; 8] = [
-        [basis(0.0, 0.0), basis(0.0, 1.0), basis(0.0, 2.0), basis(0.0, 3.0),basis(0.0, 4.0),basis(0.0, 5.0),basis(0.0, 6.0),basis(0.0, 7.0)],
+        [basis(0.0, 0.0) * FRAC_1_SQRT_2, basis(0.0, 1.0) * FRAC_1_SQRT_2, basis(0.0, 2.0) * FRAC_1_SQRT_2, basis(0.0, 3.0) * FRAC_1_SQRT_2, basis(0.0, 4.0) * FRAC_1_SQRT_2, basis(0.0, 5.0) * FRAC_1_SQRT_2, basis(0.0, 6.0) * FRAC_1_SQRT_2, basis(0.0, 7.0) * FRAC_1_SQRT_2],
         [basis(1.0, 0.0), basis(1.0, 1.0), basis(1.0, 2.0), basis(1.0, 3.0),basis(1.0, 4.0),basis(1.0, 5.0),basis(1.0, 6.0),basis(1.0, 7.0)],
         [basis(2.0, 0.0), basis(2.0, 1.0), basis(2.0, 2.0), basis(2.0, 3.0),basis(2.0, 4.0),basis(2.0, 5.0),basis(2.0, 6.0),basis(2.0, 7.0)],
         [basis(3.0, 0.0), basis(3.0, 1.0), basis(3.0, 2.0), basis(3.0, 3.0),basis(3.0, 4.0),basis(3.0, 5.0),basis(3.0, 6.0),basis(3.0, 7.0)],
@@ -27,19 +30,29 @@ lazy_static! {
         [basis(6.0, 0.0), basis(6.0, 1.0), basis(6.0, 2.0), basis(6.0, 3.0),basis(6.0, 4.0),basis(6.0, 5.0),basis(6.0, 6.0),basis(6.0, 7.0)],
         [basis(7.0, 0.0), basis(7.0, 1.0), basis(7.0, 2.0), basis(7.0, 3.0),basis(7.0, 4.0),basis(7.0, 5.0),basis(7.0, 6.0),basis(7.0, 7.0)],
     ];
-
-    static ref CUV_TABLE : [f32; 8] = [FRAC_1_SQRT_2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 }
+*/
+
+// This is the precomputed version of the table above
+#[rustfmt::skip]
+const BASIS_TABLE: [[f32; 8]; 8] = [
+    [ 0.70710677,  0.70710677,  0.70710677,  0.70710677,  0.70710677,  0.70710677,  0.70710677,  0.70710677, ],
+    [ 0.98078525,  0.8314696,   0.5555702,   0.19509023, -0.19509032, -0.55557036, -0.83146966, -0.9807853,  ],
+    [ 0.9238795,   0.38268343, -0.38268352, -0.9238796,  -0.9238795,  -0.38268313,  0.3826836,   0.92387956, ],
+    [ 0.8314696,  -0.19509032, -0.9807853,  -0.55557,     0.55557007,  0.98078525,  0.19509007, -0.8314698,  ],
+    [ 0.70710677, -0.70710677, -0.70710665,  0.707107,    0.70710677, -0.70710725, -0.70710653,  0.7071068,  ],
+    [ 0.5555702,  -0.9807853,   0.19509041,  0.83146936, -0.8314698,  -0.19508928,  0.9807853,  -0.55557007, ],
+    [ 0.38268343, -0.9238795,   0.92387974, -0.3826839,  -0.38268384,  0.9238793,  -0.92387974,  0.3826839,  ],
+    [ 0.19509023, -0.55557,     0.83146936, -0.9807852,   0.98078525, -0.83147013,  0.55557114, -0.19508967, ],
+];
 
 /// Performs a one-dimensional IDCT on the input, using some lookup tables
 /// for the scaling of the DC component, and for the cosine values to be used.
-fn idct_1d(input: &[f32; 8], output: &mut [f32; 8], cuv_table: &[f32; 8], basis_table: &[[f32; 8]; 8]) {
+fn idct_1d(input: &[f32; 8], output: &mut [f32; 8]) {
     *output = [0.0; 8];
     for freq in 0..8 {
-        let cuv = cuv_table[freq];
         for i in 0..8 {
-            let cos = basis_table[freq][i];
-            output[i] += input[freq] * cos * cuv;
+            output[i] += input[freq] * BASIS_TABLE[freq][i];
         }
     }
 }
@@ -66,8 +79,6 @@ pub fn idct_channel(
     output_samples_per_line: usize,
 ) {
     let output_height = output.len() / output_samples_per_line;
-    let basis_table = *BASIS_TABLE;
-    let cuv_table = *CUV_TABLE;
 
     // Taking advantage of the separability of the 2D IDCT, and
     // decomposing it into two subsequent orthogonal series of 1D IDCTs.
@@ -84,14 +95,14 @@ pub fn idct_channel(
             let block = &block_levels[block_id];
 
             for row in 0..8 {
-                idct_1d(&block[row], &mut idct_output[row], &cuv_table, &basis_table);
+                idct_1d(&block[row], &mut idct_output[row]);
                 for i in 0..8 {
                     idct_intermediate[i][row] = idct_output[row][i]; // there is a transposition here
                 }
             }
 
             for row in 0..8 {
-                idct_1d(&idct_intermediate[row], &mut idct_output[row], &cuv_table, &basis_table);
+                idct_1d(&idct_intermediate[row], &mut idct_output[row]);
             }
 
             for y_offset in 0..8 {
