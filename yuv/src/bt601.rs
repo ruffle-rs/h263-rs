@@ -64,6 +64,36 @@ pub fn sample_chroma_for_luma(
     ((sample + 8) / 16) as u8
 }
 
+fn yuv_to_rgb(yuv: (f32, f32, f32)) -> (f32, f32, f32) {
+    let (mut y_sample, mut b_sample, mut r_sample) = yuv;
+
+    y_sample = (y_sample - 16.0) * (255.0 / (235.0 - 16.0));
+    b_sample = (b_sample - 16.0) * (255.0 / (240.0 - 16.0)) - 128.0;
+    r_sample = (r_sample - 16.0) * (255.0 / (240.0 - 16.0)) - 128.0;
+
+    let r = y_sample + r_sample * 1.370705;
+    let g = y_sample + r_sample * -0.698001 + b_sample * -0.337633;
+    let b = y_sample + b_sample * 1.732446;
+
+    (r, g, b)
+}
+
+fn convert_and_write_pixel(
+    yuv: (f32, f32, f32),
+    rgba: &mut Vec<u8>,
+    width: usize,
+    x_pos: usize,
+    y_pos: usize,
+) {
+    let (r, g, b) = yuv_to_rgb(yuv);
+
+    let base = (x_pos + y_pos * width) * 4;
+    rgba[base] = clamp(r);
+    rgba[base + 1] = clamp(g);
+    rgba[base + 2] = clamp(b);
+    rgba[base + 3] = 255;
+}
+
 /// Convert YUV 4:2:0 data into RGB 1:1:1 data.
 ///
 /// This function yields an RGBA picture with the same number of pixels as were
@@ -83,26 +113,17 @@ pub fn yuv420_to_rgba(
 
     for y_pos in 0..y_height {
         for x_pos in 0..y_width {
-            let mut y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0) as f32;
+            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0) as f32;
+            let b_sample = sample_chroma_for_luma(chroma_b, br_width, x_pos, y_pos) as f32;
+            let r_sample = sample_chroma_for_luma(chroma_r, br_width, x_pos, y_pos) as f32;
 
-            let mut b_sample = sample_chroma_for_luma(chroma_b, br_width, x_pos, y_pos) as f32;
-            let mut r_sample = sample_chroma_for_luma(chroma_r, br_width, x_pos, y_pos) as f32;
-
-            y_sample = (y_sample - 16.0) * (255.0 / (235.0 - 16.0));
-            b_sample = (b_sample - 16.0) * (255.0 / (240.0 - 16.0));
-            r_sample = (r_sample - 16.0) * (255.0 / (240.0 - 16.0));
-
-            b_sample -= 128.0;
-            r_sample -= 128.0;
-
-            let r = y_sample + r_sample * 1.370705;
-            let g = y_sample + r_sample * -0.698001 + b_sample * -0.337633;
-            let b = y_sample + b_sample * 1.732446;
-
-            rgba[x_pos * 4 + y_pos * y_width * 4] = clamp(r);
-            rgba[x_pos * 4 + y_pos * y_width * 4 + 1] = clamp(g);
-            rgba[x_pos * 4 + y_pos * y_width * 4 + 2] = clamp(b);
-            rgba[x_pos * 4 + y_pos * y_width * 4 + 3] = 255;
+            convert_and_write_pixel(
+                (y_sample, b_sample, r_sample),
+                &mut rgba,
+                y_width,
+                x_pos,
+                y_pos,
+            );
         }
     }
 
