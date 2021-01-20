@@ -35,6 +35,7 @@ lazy_static! {
 
 // This is the precomputed version of the table above
 #[rustfmt::skip]
+#[allow(clippy::approx_constant)]
 const BASIS_TABLE: [[f32; 8]; 8] = [
     [ 0.70710677,  0.70710677,  0.70710677,  0.70710677,  0.70710677,  0.70710677,  0.70710677,  0.70710677, ],
     [ 0.98078525,  0.8314696,   0.5555702,   0.19509023, -0.19509032, -0.55557036, -0.83146966, -0.9807853,  ],
@@ -51,8 +52,8 @@ const BASIS_TABLE: [[f32; 8]; 8] = [
 fn idct_1d(input: &[f32; 8], output: &mut [f32; 8]) {
     *output = [0.0; 8];
     for freq in 0..8 {
-        for i in 0..8 {
-            output[i] += input[freq] * BASIS_TABLE[freq][i];
+        for (i, out) in output.iter_mut().enumerate() {
+            *out += input[freq] * BASIS_TABLE[freq][i];
         }
     }
 }
@@ -97,8 +98,8 @@ pub fn idct_channel(
 
             for row in 0..8 {
                 idct_1d(&block[row], &mut idct_output[row]);
-                for i in 0..8 {
-                    idct_intermediate[i][row] = idct_output[row][i]; // there is a transposition here
+                for (i, interim_row) in idct_intermediate.iter_mut().enumerate() {
+                    interim_row[row] = idct_output[row][i]; // there is a transposition here
                 }
             }
 
@@ -106,8 +107,10 @@ pub fn idct_channel(
                 idct_1d(&idct_intermediate[row], &mut idct_output[row]);
             }
 
-            for y_offset in 0..8 {
-                for x_offset in 0..8 {
+            // The inverted notation of the `x` and `y` loops is intended to
+            // reverse the above transposition
+            for (y_offset, idct_row) in idct_output.iter().enumerate() {
+                for (x_offset, idct) in idct_row.iter().enumerate() {
                     let x = x_base * 8 + x_offset;
                     let y = y_base * 8 + y_offset;
 
@@ -118,8 +121,6 @@ pub fn idct_channel(
                     if y >= output_height {
                         continue;
                     }
-
-                    let idct = idct_output[y_offset][x_offset]; // transposing back to the right orientation
 
                     let clipped_idct =
                         min(255, max(-256, (idct / 4.0 + idct.signum() * 0.5) as i16));
