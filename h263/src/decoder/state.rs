@@ -406,6 +406,16 @@ impl H263State {
                 macroblock_types.push(mb_type);
             }
 
+            //If the picture ended early, assume all the remaining blocks are
+            //empty INTER blocks with motion vector (0,0)
+            if predictor_vectors.len() < predictor_vectors.capacity() {
+                predictor_vectors.resize(predictor_vectors.capacity(), [MotionVector::zero(); 4]);
+            }
+
+            if macroblock_types.len() < macroblock_types.capacity() {
+                macroblock_types.resize(macroblock_types.capacity(), MacroblockType::Inter);
+            }
+
             //We have now read out all of the macroblock and block data and
             //queued it up into the various internal buffers we allocated for
             //this purpose. Time to decode it all in one go.
