@@ -79,14 +79,15 @@ pub fn idct_channel(
     output_samples_per_line: usize,
 ) {
     let output_height = output.len() / output_samples_per_line;
+    let blk_height = block_levels.len() / blk_per_line;
 
     // Taking advantage of the separability of the 2D IDCT, and
     // decomposing it into two subsequent orthogonal series of 1D IDCTs.
     let mut idct_intermediate: [[f32; 8]; 8] = [[0.0; 8]; 8];
     let mut idct_output: [[f32; 8]; 8] = [[0.0; 8]; 8];
 
-    for y_base in 0..blk_per_line {
-        for x_base in 0..=output_samples_per_line / 8 {
+    for y_base in 0..blk_height {
+        for x_base in 0..blk_per_line {
             let block_id = x_base + (y_base * blk_per_line);
             if block_id >= block_levels.len() {
                 continue;
