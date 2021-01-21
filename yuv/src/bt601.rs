@@ -4,15 +4,15 @@ fn clamp(v: f32) -> u8 {
     (v + 0.5) as u8
 }
 
-pub fn clamped_index(width: i32, height: i32, x: i32, y: i32) -> usize {
+fn clamped_index(width: i32, height: i32, x: i32, y: i32) -> usize {
     (x.max(0).min(width - 1) + (y.max(0).min(height - 1) * width)) as usize
 }
 
-pub fn unclamped_index(width: i32, x: i32, y: i32) -> usize {
+fn unclamped_index(width: i32, x: i32, y: i32) -> usize {
     (x + y * width) as usize
 }
 
-pub fn sample_chroma_for_luma(
+fn sample_chroma_for_luma(
     chroma: &[u8],
     chroma_width: usize,
     chroma_height: usize,
@@ -131,8 +131,7 @@ pub fn yuv420_to_rgba(
     let y_height = y.len() / y_width;
     let br_height = chroma_b.len() / br_width;
 
-    let mut rgba = Vec::new();
-    rgba.resize(y.len() * 4, 0);
+    let mut rgba = vec![0; y.len() * 4];
 
     // do the bulk of the pixels faster, with no clamping, leaving out the edges
     for y_pos in 1..y_height - 1 {
