@@ -1,7 +1,7 @@
 //! YUV-to-RGB decode
 
 fn clamp(v: f32) -> u8 {
-    (v + 0.5).max(0.0).min(255.0) as u8
+    (v + 0.5) as u8
 }
 
 pub fn clamped_index(width: i32, height: i32, x: i32, y: i32) -> usize {
