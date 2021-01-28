@@ -692,7 +692,7 @@ where
             match short_tcoef.ok_or(Error::InvalidShortCoefficient)? {
                 EscapeToLong => {
                     let level_width = if decoder_options
-                        .contains(DecoderOption::SorensonSparkBitstream)
+                        .contains(DecoderOption::SORENSON_SPARK_BITSTREAM)
                         && picture.version == Some(1)
                     {
                         if reader.read_bits::<u8>(1)? == 1 {
@@ -714,7 +714,7 @@ where
 
                     //TODO: Modified Quantization (Annex T)
                     if level == i16::MAX << level_width {
-                        if running_options.contains(PictureOption::ModifiedQuantization) {
+                        if running_options.contains(PictureOption::MODIFIED_QUANTIZATION) {
                             return Err(Error::UnimplementedDecoding);
                         } else {
                             return Err(Error::InvalidLongCoefficient);
@@ -2057,7 +2057,7 @@ mod tests {
             },
             decode_block(
                 &mut reader,
-                DecoderOption::SorensonSparkBitstream.into(),
+                DecoderOption::SORENSON_SPARK_BITSTREAM,
                 &picture,
                 PictureOption::empty(),
                 MacroblockType::Intra,
@@ -2112,7 +2112,7 @@ mod tests {
             },
             decode_block(
                 &mut reader,
-                DecoderOption::SorensonSparkBitstream.into(),
+                DecoderOption::SORENSON_SPARK_BITSTREAM,
                 &picture,
                 PictureOption::empty(),
                 MacroblockType::Intra,

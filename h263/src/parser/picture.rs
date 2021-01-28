@@ -31,15 +31,15 @@ where
         }
 
         if high_ptype_bits & 0x20 != 0 {
-            options |= PictureOption::UseSplitScreen;
+            options |= PictureOption::USE_SPLIT_SCREEN;
         }
 
         if high_ptype_bits & 0x10 != 0 {
-            options |= PictureOption::UseDocumentCamera;
+            options |= PictureOption::USE_DOCUMENT_CAMERA;
         }
 
         if high_ptype_bits & 0x08 != 0 {
-            options |= PictureOption::ReleaseFullPictureFreeze;
+            options |= PictureOption::RELEASE_FULL_PICTURE_FREEZE;
         }
 
         let source_format = match high_ptype_bits & 0x07 {
@@ -61,15 +61,15 @@ where
         };
 
         if low_ptype_bits & 0x08 != 0 {
-            options |= PictureOption::UnrestrictedMotionVectors;
+            options |= PictureOption::UNRESTRICTED_MOTION_VECTORS;
         }
 
         if low_ptype_bits & 0x04 != 0 {
-            options |= PictureOption::SyntaxBasedArithmeticCoding;
+            options |= PictureOption::SYNTAX_BASED_ARITHMETIC_CODING;
         }
 
         if low_ptype_bits & 0x02 != 0 {
-            options |= PictureOption::AdvancedPrediction;
+            options |= PictureOption::ADVANCED_PREDICTION;
         }
 
         if low_ptype_bits & 0x01 != 0 {
@@ -88,12 +88,12 @@ bitflags! {
     /// follower can be determined by the set of `PictureOption`s returned in
     /// the `PlusPType`.
     pub struct PlusPTypeFollower: u8 {
-        const HasCustomFormat = 0b1;
-        const HasCustomClock = 0b10;
-        const HasMotionVectorRange = 0b100;
-        const HasSliceStructuredSubmode = 0b1000;
-        const HasReferenceLayerNumber = 0b10000;
-        const HasReferencePictureSelectionMode = 0b100000;
+        const HAS_CUSTOM_FORMAT = 0b1;
+        const HAS_CUSTOM_CLOCK = 0b10;
+        const HAS_MOTION_VECTOR_RANGE = 0b100;
+        const HAS_SLICE_STRUCTURED_SUBMODE = 0b1000;
+        const HAS_REFERENCE_LAYER_NUMBER = 0b10000;
+        const HAS_REFERENCE_PICTURE_SELECTION_MODE = 0b100000;
     }
 }
 
@@ -113,21 +113,21 @@ pub type PlusPType = (
     bool,
 );
 
-/// The set of picture options defined by an `OPPTYPE` record.
-///
-/// If a picture does not contain an `OPPTYPE`, then all of these options will
-/// be carried forward from the previous picture's options.
 lazy_static! {
-    static ref OPPTYPE_OPTIONS: PictureOption = PictureOption::UnrestrictedMotionVectors
-        | PictureOption::SyntaxBasedArithmeticCoding
-        | PictureOption::AdvancedPrediction
-        | PictureOption::AdvancedIntraCoding
-        | PictureOption::DeblockingFilter
-        | PictureOption::SliceStructured
-        | PictureOption::ReferencePictureSelection
-        | PictureOption::IndependentSegmentDecoding
-        | PictureOption::AlternativeInterVLC
-        | PictureOption::ModifiedQuantization;
+    /// The set of picture options defined by an `OPPTYPE` record.
+    ///
+    /// If a picture does not contain an `OPPTYPE`, then all of these options
+    /// will be carried forward from the previous picture's options.
+    static ref OPPTYPE_OPTIONS: PictureOption = PictureOption::UNRESTRICTED_MOTION_VECTORS
+        | PictureOption::SYNTAX_BASED_ARITHMETIC_CODING
+        | PictureOption::ADVANCED_PREDICTION
+        | PictureOption::ADVANCED_INTRA_CODING
+        | PictureOption::DEBLOCKING_FILTER
+        | PictureOption::SLICE_STRUCTURED
+        | PictureOption::REFERENCE_PICTURE_SELECTION
+        | PictureOption::INDEPENDENT_SEGMENT_DECODING
+        | PictureOption::ALTERNATIVE_INTER_VLC
+        | PictureOption::MODIFIED_QUANTIZATION;
 }
 
 /// Attempts to read a `PLUSPTYPE` record from the bitstream.
@@ -170,7 +170,7 @@ where
                 4 => Some(SourceFormat::FourCIF),
                 5 => Some(SourceFormat::SixteenCIF),
                 6 => {
-                    followers |= PlusPTypeFollower::HasCustomFormat;
+                    followers |= PlusPTypeFollower::HAS_CUSTOM_FORMAT;
 
                     None
                 }
@@ -178,54 +178,54 @@ where
             };
 
             if opptype & 0x04000 != 0 {
-                followers |= PlusPTypeFollower::HasCustomClock;
+                followers |= PlusPTypeFollower::HAS_CUSTOM_CLOCK;
             }
 
             if opptype & 0x02000 != 0 {
-                options |= PictureOption::UnrestrictedMotionVectors;
-                followers |= PlusPTypeFollower::HasMotionVectorRange;
+                options |= PictureOption::UNRESTRICTED_MOTION_VECTORS;
+                followers |= PlusPTypeFollower::HAS_MOTION_VECTOR_RANGE;
             }
 
             if opptype & 0x01000 != 0 {
-                options |= PictureOption::SyntaxBasedArithmeticCoding;
+                options |= PictureOption::SYNTAX_BASED_ARITHMETIC_CODING;
             }
 
             if opptype & 0x00800 != 0 {
-                options |= PictureOption::AdvancedPrediction;
+                options |= PictureOption::ADVANCED_PREDICTION;
             }
 
             if opptype & 0x00400 != 0 {
-                options |= PictureOption::AdvancedIntraCoding;
+                options |= PictureOption::ADVANCED_INTRA_CODING;
             }
 
             if opptype & 0x00200 != 0 {
-                options |= PictureOption::DeblockingFilter;
+                options |= PictureOption::DEBLOCKING_FILTER;
             }
 
             if opptype & 0x00100 != 0 {
-                options |= PictureOption::SliceStructured;
-                followers |= PlusPTypeFollower::HasSliceStructuredSubmode;
+                options |= PictureOption::SLICE_STRUCTURED;
+                followers |= PlusPTypeFollower::HAS_SLICE_STRUCTURED_SUBMODE;
             }
 
             if opptype & 0x00080 != 0 {
-                options |= PictureOption::ReferencePictureSelection;
-                followers |= PlusPTypeFollower::HasReferencePictureSelectionMode;
+                options |= PictureOption::REFERENCE_PICTURE_SELECTION;
+                followers |= PlusPTypeFollower::HAS_REFERENCE_PICTURE_SELECTION_MODE;
             }
 
             if opptype & 0x00040 != 0 {
-                options |= PictureOption::IndependentSegmentDecoding;
+                options |= PictureOption::INDEPENDENT_SEGMENT_DECODING;
             }
 
             if opptype & 0x00020 != 0 {
-                options |= PictureOption::AlternativeInterVLC;
+                options |= PictureOption::ALTERNATIVE_INTER_VLC;
             }
 
             if opptype & 0x00010 != 0 {
-                options |= PictureOption::ModifiedQuantization;
+                options |= PictureOption::MODIFIED_QUANTIZATION;
             }
 
-            if decoder_options.contains(DecoderOption::UseScalabilityMode) {
-                followers |= PlusPTypeFollower::HasReferenceLayerNumber;
+            if decoder_options.contains(DecoderOption::USE_SCALABILITY_MODE) {
+                followers |= PlusPTypeFollower::HAS_REFERENCE_LAYER_NUMBER;
             }
         } else {
             options |= previous_picture_options & *OPPTYPE_OPTIONS;
@@ -249,15 +249,15 @@ where
         };
 
         if mpptype & 0x020 != 0 {
-            options |= PictureOption::ReferencePictureResampling;
+            options |= PictureOption::REFERENCE_PICTURE_RESAMPLING;
         }
 
         if mpptype & 0x010 != 0 {
-            options |= PictureOption::ReducedResolutionUpdate;
+            options |= PictureOption::REDUCED_RESOLUTION_UPDATE;
         }
 
         if mpptype & 0x008 != 0 {
-            options |= PictureOption::RoundingTypeOne;
+            options |= PictureOption::ROUNDING_TYPE_ONE;
         }
 
         Ok((options, source_format, picture_type, followers, has_opptype))
@@ -318,7 +318,7 @@ where
         let mut options = PictureOption::empty();
 
         if reader.read_bits::<u8>(1)? == 1 {
-            options |= PictureOption::UseDeblocker;
+            options |= PictureOption::USE_DEBLOCKER;
         }
 
         Ok((source_format.unwrap(), picture_type, options))
@@ -435,11 +435,11 @@ where
         let sss_bits: u8 = reader.read_bits(2)?;
 
         if sss_bits & 0x01 != 0 {
-            sss |= SliceSubmode::RectangularSlices;
+            sss |= SliceSubmode::RECTANGULAR_SLICES;
         }
 
         if sss_bits & 0x02 != 0 {
-            sss |= SliceSubmode::ArbitraryOrder;
+            sss |= SliceSubmode::ARBITRARY_ORDER;
         }
 
         Ok(sss)
@@ -456,7 +456,7 @@ where
 {
     reader.with_transaction(|reader| {
         let enhancement = reader.read_bits(4)?;
-        let reference = if followers.contains(PlusPTypeFollower::HasReferenceLayerNumber) {
+        let reference = if followers.contains(PlusPTypeFollower::HAS_REFERENCE_LAYER_NUMBER) {
             Some(reader.read_bits(4)?)
         } else {
             None
@@ -479,15 +479,15 @@ where
         let rpsmf_bits: u8 = reader.read_bits(3)?;
 
         if rpsmf_bits & 0x4 == 0 {
-            rpsmf |= ReferencePictureSelectionMode::Reserved;
+            rpsmf |= ReferencePictureSelectionMode::RESERVED;
         }
 
         if rpsmf_bits & 0x2 != 0 {
-            rpsmf |= ReferencePictureSelectionMode::RequestNegativeAcknowledgement;
+            rpsmf |= ReferencePictureSelectionMode::REQUEST_NEGATIVE_ACKNOWLEDGEMENT;
         }
 
         if rpsmf_bits & 0x1 != 0 {
-            rpsmf |= ReferencePictureSelectionMode::RequestAcknowledgement;
+            rpsmf |= ReferencePictureSelectionMode::REQUEST_ACKNOWLEDGEMENT;
         }
 
         Ok(rpsmf)
@@ -624,7 +624,7 @@ where
 
         let gob_id = reader.read_bits(5)?;
 
-        if decoder_options.contains(DecoderOption::SorensonSparkBitstream) {
+        if decoder_options.contains(DecoderOption::SORENSON_SPARK_BITSTREAM) {
             let temporal_reference = reader.read_u8()? as u16;
             let (source_format, picture_type, options) = decode_sorenson_ptype(reader)?;
             let quantizer: u8 = reader.read_bits(5)?;
@@ -700,11 +700,11 @@ where
         //`decode_picture` to be able to look up previous picture headers
         //somehow.
 
-        if followers.contains(PlusPTypeFollower::HasCustomFormat) {
+        if followers.contains(PlusPTypeFollower::HAS_CUSTOM_FORMAT) {
             format = Some(SourceFormat::Extended(decode_cpfmt(reader)?));
         }
 
-        let picture_clock = if followers.contains(PlusPTypeFollower::HasCustomClock) {
+        let picture_clock = if followers.contains(PlusPTypeFollower::HAS_CUSTOM_CLOCK) {
             Some(decode_cpcfc(reader)?)
         } else {
             None
@@ -718,38 +718,39 @@ where
             low_tr as u16
         };
 
-        let motion_vector_range = if followers.contains(PlusPTypeFollower::HasMotionVectorRange) {
+        let motion_vector_range = if followers.contains(PlusPTypeFollower::HAS_MOTION_VECTOR_RANGE)
+        {
             Some(decode_uui(reader)?)
         } else {
             None
         };
 
-        let slice_submode = if followers.contains(PlusPTypeFollower::HasSliceStructuredSubmode) {
+        let slice_submode = if followers.contains(PlusPTypeFollower::HAS_SLICE_STRUCTURED_SUBMODE) {
             Some(decode_sss(reader)?)
         } else {
             None
         };
 
-        let scalability_layer = if decoder_options.contains(DecoderOption::UseScalabilityMode) {
+        let scalability_layer = if decoder_options.contains(DecoderOption::USE_SCALABILITY_MODE) {
             Some(decode_elnum_rlnum(reader, followers)?)
         } else {
             None
         };
 
         let reference_picture_selection_mode =
-            if followers.contains(PlusPTypeFollower::HasReferencePictureSelectionMode) {
+            if followers.contains(PlusPTypeFollower::HAS_REFERENCE_PICTURE_SELECTION_MODE) {
                 Some(decode_rpsmf(reader)?)
             } else {
                 None
             };
 
-        let prediction_reference = if options.contains(PictureOption::ReferencePictureSelection) {
+        let prediction_reference = if options.contains(PictureOption::REFERENCE_PICTURE_SELECTION) {
             decode_trpi(reader)?
         } else {
             None
         };
 
-        let backchannel_message = if options.contains(PictureOption::ReferencePictureSelection) {
+        let backchannel_message = if options.contains(PictureOption::REFERENCE_PICTURE_SELECTION) {
             decode_bcm(reader)?
         } else {
             None
@@ -757,7 +758,7 @@ where
 
         //TODO: this should be checking against the reference picture to see if we need RPRP
         let reference_picture_resampling = if options
-            .contains(PictureOption::ReferencePictureResampling)
+            .contains(PictureOption::REFERENCE_PICTURE_RESAMPLING)
             || previous_picture
                 .map(|p| p.format != format)
                 .unwrap_or(false)

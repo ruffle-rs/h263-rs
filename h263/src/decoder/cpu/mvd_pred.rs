@@ -77,7 +77,7 @@ pub fn halfpel_decode(
     let mut range = HalfPel::STANDARD_RANGE;
     let mut out = mvd + predictor;
 
-    if running_options.contains(PictureOption::UnrestrictedMotionVectors)
+    if running_options.contains(PictureOption::UNRESTRICTED_MOTION_VECTORS)
         && !current_picture.as_header().has_plusptype
     {
         if predictor.is_mv_within_range(HalfPel::STANDARD_RANGE) {
@@ -85,7 +85,7 @@ pub fn halfpel_decode(
         } else {
             range = HalfPel::EXTENDED_RANGE;
         }
-    } else if running_options.contains(PictureOption::UnrestrictedMotionVectors)
+    } else if running_options.contains(PictureOption::UNRESTRICTED_MOTION_VECTORS)
         && matches!(
             current_picture.as_header().motion_vector_range,
             Some(MotionVectorRange::Extended)

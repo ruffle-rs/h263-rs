@@ -53,7 +53,7 @@ impl H263State {
     /// Determine if this decoder is in "Sorenson" H.263 mode.
     pub fn is_sorenson(&self) -> bool {
         self.decoder_options
-            .contains(DecoderOption::SorensonSparkBitstream)
+            .contains(DecoderOption::SORENSON_SPARK_BITSTREAM)
     }
 
     /// Get the last picture decoded in the bitstream.

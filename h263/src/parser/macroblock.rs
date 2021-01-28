@@ -420,7 +420,7 @@ where
     R: Read,
 {
     reader.with_transaction(|reader| {
-        if running_options.contains(PictureOption::UnrestrictedMotionVectors)
+        if running_options.contains(PictureOption::UNRESTRICTED_MOTION_VECTORS)
             && picture.has_plusptype
         {
             let x = reader.read_umv()?;
@@ -494,7 +494,7 @@ where
                 None
             };
 
-            let d_quantizer = if running_options.contains(PictureOption::ModifiedQuantization) {
+            let d_quantizer = if running_options.contains(PictureOption::MODIFIED_QUANTIZATION) {
                 return Err(Error::UnimplementedDecoding);
             } else if mb_type.has_quantizer() {
                 Some(decode_dquant(reader)?)

@@ -55,7 +55,7 @@ pub struct Picture {
     /// What slice-structured submodes are active.
     ///
     /// Must be specified if and only if the `PictureOption` called
-    /// `SliceStructured` is also enabled.
+    /// `SLICE_STRUCTURED` is also enabled.
     pub slice_submode: Option<SliceSubmode>,
 
     /// Which layer this picture is a member of.
@@ -73,20 +73,20 @@ pub struct Picture {
     /// reconstruct this picture. Must not be specified if this is an `IFrame`
     /// or `EIFrame`. For `BFrame`s, this field indicates the reference number
     /// of the forward-predicted reference frame. If not specified, intra
-    /// prediction proceeds as if `ReferencePictureSelection` had not been
+    /// prediction proceeds as if `REFERENCE_PICTURE_SELECTION` had not been
     /// enabled.
     pub prediction_reference: Option<u16>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.16 `BCI`
     ///
     /// This field stores any backchannel message requests sent by the encoder.
-    /// This field may only be present if `ReferencePictureSelection` has been
-    /// enabled.
+    /// This field may only be present if `REFERENCE_PICTURE_SELECTION` has
+    /// been enabled.
     pub backchannel_message: Option<BackchannelMessage>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.18 `RPRP`
     ///
-    /// Carries the parameters of the `ReferencePictureResampling` mode.
+    /// Carries the parameters of the `REFERENCE_PICTURE_RESAMPLING` mode.
     pub reference_picture_resampling: Option<ReferencePictureResampling>,
 
     /// ITU-T Recommendation H.263 (01/2005) 5.1.19 `PQUANT`
@@ -192,27 +192,27 @@ bitflags! {
     /// `PictureTypeCode`s will also prohibit the use of certain
     /// `PictureOption`s.
     pub struct PictureOption : u32 {
-        const UseSplitScreen = 0b1;
-        const UseDocumentCamera = 0b10;
-        const ReleaseFullPictureFreeze = 0b100;
-        const UnrestrictedMotionVectors = 0b1000;
-        const SyntaxBasedArithmeticCoding = 0b10000;
-        const AdvancedPrediction = 0b100000;
-        const AdvancedIntraCoding = 0b1000000;
-        const DeblockingFilter = 0b10000000;
-        const SliceStructured = 0b100000000;
-        const ReferencePictureSelection = 0b1000000000;
-        const IndependentSegmentDecoding = 0b10000000000;
-        const AlternativeInterVLC = 0b100000000000;
-        const ModifiedQuantization = 0b1000000000000;
-        const ReferencePictureResampling = 0b10000000000000;
-        const ReducedResolutionUpdate = 0b100000000000000;
-        const RoundingTypeOne = 0b1000000000000000;
+        const USE_SPLIT_SCREEN = 0b1;
+        const USE_DOCUMENT_CAMERA = 0b10;
+        const RELEASE_FULL_PICTURE_FREEZE = 0b100;
+        const UNRESTRICTED_MOTION_VECTORS = 0b1000;
+        const SYNTAX_BASED_ARITHMETIC_CODING = 0b10000;
+        const ADVANCED_PREDICTION = 0b100000;
+        const ADVANCED_INTRA_CODING = 0b1000000;
+        const DEBLOCKING_FILTER = 0b10000000;
+        const SLICE_STRUCTURED = 0b100000000;
+        const REFERENCE_PICTURE_SELECTION = 0b1000000000;
+        const INDEPENDENT_SEGMENT_DECODING = 0b10000000000;
+        const ALTERNATIVE_INTER_VLC = 0b100000000000;
+        const MODIFIED_QUANTIZATION = 0b1000000000000;
+        const REFERENCE_PICTURE_RESAMPLING = 0b10000000000000;
+        const REDUCED_RESOLUTION_UPDATE = 0b100000000000000;
+        const ROUNDING_TYPE_ONE = 0b1000000000000000;
 
         /// Advisory flag to request use of a deblocking filter.
         ///
         /// This flag is only set by Sorenson Spark bitstreams.
-        const UseDeblocker = 0b10000000000000000;
+        const USE_DEBLOCKER = 0b10000000000000000;
     }
 }
 
@@ -220,23 +220,23 @@ lazy_static! {
     /// The set of options only present in the `OPPTYPE` portion of the picture
     /// header.
     pub static ref OPPTYPE_OPTIONS: PictureOption =
-        PictureOption::UnrestrictedMotionVectors
-            | PictureOption::SyntaxBasedArithmeticCoding
-            | PictureOption::AdvancedPrediction
-            | PictureOption::AdvancedIntraCoding
-            | PictureOption::DeblockingFilter
-            | PictureOption::SliceStructured
-            | PictureOption::ReferencePictureSelection
-            | PictureOption::IndependentSegmentDecoding
-            | PictureOption::AlternativeInterVLC
-            | PictureOption::ModifiedQuantization;
+        PictureOption::UNRESTRICTED_MOTION_VECTORS
+            | PictureOption::SYNTAX_BASED_ARITHMETIC_CODING
+            | PictureOption::ADVANCED_PREDICTION
+            | PictureOption::ADVANCED_INTRA_CODING
+            | PictureOption::DEBLOCKING_FILTER
+            | PictureOption::SLICE_STRUCTURED
+            | PictureOption::REFERENCE_PICTURE_SELECTION
+            | PictureOption::INDEPENDENT_SEGMENT_DECODING
+            | PictureOption::ALTERNATIVE_INTER_VLC
+            | PictureOption::MODIFIED_QUANTIZATION;
 
     /// The set of options only present in the `MPPTYPE` portion of the picture
     /// header.
     pub static ref MPPTYPE_OPTIONS: PictureOption =
-        PictureOption::ReferencePictureResampling
-            | PictureOption::ReducedResolutionUpdate
-            | PictureOption::RoundingTypeOne;
+        PictureOption::REFERENCE_PICTURE_RESAMPLING
+            | PictureOption::REDUCED_RESOLUTION_UPDATE
+            | PictureOption::ROUNDING_TYPE_ONE;
 }
 
 /// All available picture types in H.263.
@@ -378,7 +378,7 @@ pub struct CustomPictureClock {
 /// ITU-T Recommendation H.263 (01/2005) 5.1.9 `UUI`
 ///
 /// Indicates the new motion vector range limitations when
-/// `UnrestrictedMotionVectors` are enabled.
+/// `UNRESTRICTED_MOTION_VECTORS` are enabled.
 #[derive(Debug)]
 pub enum MotionVectorRange {
     /// Motion vector component ranges are extended to limits that are
@@ -395,10 +395,10 @@ bitflags! {
     /// Indicates slice configuration when slice-structured mode is enabled.
     pub struct SliceSubmode : u8 {
         /// Slices must be rectantular rather than free-running.
-        const RectangularSlices = 0b1;
+        const RECTANGULAR_SLICES = 0b1;
 
         /// Slices may be sent in arbitrary order.
-        const ArbitraryOrder = 0b10;
+        const ARBITRARY_ORDER = 0b10;
     }
 }
 
@@ -424,9 +424,9 @@ bitflags! {
     /// Indicates what backchannel messages the encoder would like out of it's
     /// decoding partner.
     pub struct ReferencePictureSelectionMode : u8 {
-        const Reserved = 0b1;
-        const RequestNegativeAcknowledgement = 0b10;
-        const RequestAcknowledgement = 0b100;
+        const RESERVED = 0b1;
+        const REQUEST_NEGATIVE_ACKNOWLEDGEMENT = 0b10;
+        const REQUEST_ACKNOWLEDGEMENT = 0b100;
     }
 }
 
