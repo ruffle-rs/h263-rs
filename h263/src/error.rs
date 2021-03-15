@@ -18,7 +18,7 @@ pub enum Error {
     InvalidMacroblockCodedBits,
 
     #[error("the H.263 bitstream contains an invalid intra-dc coefficient")]
-    InvalidIntraDC,
+    InvalidIntraDc,
 
     #[error("the H.263 bitstream contains an invalid short ac coefficient")]
     InvalidShortCoefficient,
@@ -27,7 +27,7 @@ pub enum Error {
     InvalidLongCoefficient,
 
     #[error("the H.263 bitstream contains an invalid motion vector")]
-    InvalidMVD,
+    InvalidMvd,
 
     #[error("the H.263 bitstream has an invalid picture type")]
     InvalidPType,
@@ -36,7 +36,7 @@ pub enum Error {
     InvalidPlusPType,
 
     #[error("the H.263 bitstream has an invalid group-of-blocks header")]
-    InvalidGOBHeader,
+    InvalidGobHeader,
 
     #[error("the H.263 bitstream could not be decoded")]
     InvalidBitstream,
@@ -88,7 +88,7 @@ impl Error {
     ///
     /// GOB parsing errors end the current picture.
     pub fn is_gob_error(&self) -> bool {
-        matches!(self, Error::InvalidGOBHeader)
+        matches!(self, Error::InvalidGobHeader)
     }
 }
 

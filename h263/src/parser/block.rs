@@ -6,7 +6,7 @@ use crate::decoder::DecoderOption;
 use crate::error::{Error, Result};
 use crate::parser::reader::H263Reader;
 use crate::parser::vlc::{Entry, Entry::*};
-use crate::types::{Block, IntraDC, MacroblockType, Picture, PictureOption, TCoefficient};
+use crate::types::{Block, IntraDc, MacroblockType, Picture, PictureOption, TCoefficient};
 use std::io::Read;
 
 /// Represents a partially decoded short `TCOEF` entry.
@@ -680,7 +680,7 @@ where
 {
     reader.with_transaction(|reader| {
         let intradc = if macroblock_type.is_intra() {
-            Some(IntraDC::from_u8(reader.read_u8()?).ok_or(Error::InvalidIntraDC)?)
+            Some(IntraDc::from_u8(reader.read_u8()?).ok_or(Error::InvalidIntraDc)?)
         } else {
             None
         };
@@ -760,7 +760,7 @@ mod tests {
     use crate::parser::block::{decode_block, ShortTCoefficient, TCOEF_TABLE};
     use crate::parser::reader::H263Reader;
     use crate::types::{
-        Block, IntraDC, MacroblockType, Picture, PictureOption, PictureTypeCode, TCoefficient,
+        Block, IntraDc, MacroblockType, Picture, PictureOption, PictureTypeCode, TCoefficient,
     };
 
     #[test]
@@ -1777,7 +1777,7 @@ mod tests {
 
         assert_eq!(
             Block {
-                intradc: IntraDC::from_level(0x318),
+                intradc: IntraDc::from_level(0x318),
                 tcoef: vec![]
             },
             decode_block(
@@ -1876,7 +1876,7 @@ mod tests {
 
         assert_eq!(
             Block {
-                intradc: IntraDC::from_level(0x318),
+                intradc: IntraDc::from_level(0x318),
                 tcoef: vec![
                     TCoefficient {
                         is_short: false,
@@ -1986,7 +1986,7 @@ mod tests {
 
         assert_eq!(
             Block {
-                intradc: IntraDC::from_level(0x318),
+                intradc: IntraDc::from_level(0x318),
                 tcoef: vec![
                     TCoefficient {
                         is_short: true,
@@ -2041,7 +2041,7 @@ mod tests {
 
         assert_eq!(
             Block {
-                intradc: IntraDC::from_level(0x318),
+                intradc: IntraDc::from_level(0x318),
                 tcoef: vec![
                     TCoefficient {
                         is_short: false,
@@ -2096,7 +2096,7 @@ mod tests {
 
         assert_eq!(
             Block {
-                intradc: IntraDC::from_level(0x318),
+                intradc: IntraDc::from_level(0x318),
                 tcoef: vec![
                     TCoefficient {
                         is_short: false,

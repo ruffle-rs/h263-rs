@@ -44,11 +44,11 @@ where
 
         let source_format = match high_ptype_bits & 0x07 {
             0 => return Err(Error::InvalidPType),
-            1 => SourceFormat::SubQCIF,
-            2 => SourceFormat::QuarterCIF,
-            3 => SourceFormat::FullCIF,
-            4 => SourceFormat::FourCIF,
-            5 => SourceFormat::SixteenCIF,
+            1 => SourceFormat::SubQcif,
+            2 => SourceFormat::QuarterCif,
+            3 => SourceFormat::FullCif,
+            4 => SourceFormat::FourCif,
+            5 => SourceFormat::SixteenCif,
             6 => SourceFormat::Reserved,
             _ => return Ok((options, None)),
         };
@@ -73,7 +73,7 @@ where
         }
 
         if low_ptype_bits & 0x01 != 0 {
-            r#type = PictureTypeCode::PBFrame;
+            r#type = PictureTypeCode::PbFrame;
         }
 
         Ok((options, Some((source_format, r#type))))
@@ -164,11 +164,11 @@ where
 
             source_format = match (opptype & 0x38000) >> 15 {
                 0 => Some(SourceFormat::Reserved),
-                1 => Some(SourceFormat::SubQCIF),
-                2 => Some(SourceFormat::QuarterCIF),
-                3 => Some(SourceFormat::FullCIF),
-                4 => Some(SourceFormat::FourCIF),
-                5 => Some(SourceFormat::SixteenCIF),
+                1 => Some(SourceFormat::SubQcif),
+                2 => Some(SourceFormat::QuarterCif),
+                3 => Some(SourceFormat::FullCif),
+                4 => Some(SourceFormat::FourCif),
+                5 => Some(SourceFormat::SixteenCif),
                 6 => {
                     followers |= PlusPTypeFollower::HAS_CUSTOM_FORMAT;
 
@@ -241,10 +241,10 @@ where
         let picture_type = match (mpptype & 0x1C0) >> 6 {
             0 => PictureTypeCode::IFrame,
             1 => PictureTypeCode::PFrame,
-            2 => PictureTypeCode::ImprovedPBFrame,
+            2 => PictureTypeCode::ImprovedPbFrame,
             3 => PictureTypeCode::BFrame,
-            4 => PictureTypeCode::EIFrame,
-            5 => PictureTypeCode::EPFrame,
+            4 => PictureTypeCode::EiFrame,
+            5 => PictureTypeCode::EpFrame,
             r => PictureTypeCode::Reserved(r as u8),
         };
 
@@ -275,9 +275,9 @@ where
         let (mut source_format, bit_count) = match reader.read_bits(3)? {
             0 => (None, 8),
             1 => (None, 16),
-            2 => (Some(SourceFormat::FullCIF), 0),
-            3 => (Some(SourceFormat::QuarterCIF), 0),
-            4 => (Some(SourceFormat::SubQCIF), 0),
+            2 => (Some(SourceFormat::FullCif), 0),
+            3 => (Some(SourceFormat::QuarterCif), 0),
+            4 => (Some(SourceFormat::SubQcif), 0),
             5 => (
                 Some(SourceFormat::Extended(CustomPictureFormat {
                     pixel_aspect_ratio: PixelAspectRatio::Square,
@@ -779,7 +779,7 @@ where
         //reference picture thing I mentioned before in the last TODO
         let (pb_reference, pb_quantizer) = if matches!(
             picture_type,
-            PictureTypeCode::PBFrame | PictureTypeCode::ImprovedPBFrame
+            PictureTypeCode::PbFrame | PictureTypeCode::ImprovedPbFrame
         ) {
             (
                 Some(decode_trb(reader, picture_clock.is_some())?),

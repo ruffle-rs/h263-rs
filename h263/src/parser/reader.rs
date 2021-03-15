@@ -321,7 +321,7 @@ where
             }
         }
 
-        Err(Error::InvalidMVD)
+        Err(Error::InvalidMvd)
     }
 
     /// Yield a checkpoint value that can be used to abort a complex read

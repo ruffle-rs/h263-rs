@@ -155,26 +155,26 @@ const MCBPC_P_TABLE: [Entry<BlockPatternEntry>; 53] = [
     End(BlockPatternEntry::Invalid), //slot 43: no long runs of zeroes
     Fork(45, 46), //0000000001x, slot 44
     End(BlockPatternEntry::Valid(
-        MacroblockType::Inter4VQ,
+        MacroblockType::Inter4Vq,
         false,
         false,
     )), //00000000010, slot 45
     Fork(47, 50), //00000000011x, slot 46
     Fork(48, 49), //000000000110x, slot 47
     End(BlockPatternEntry::Valid(
-        MacroblockType::Inter4VQ,
+        MacroblockType::Inter4Vq,
         false,
         true,
     )), //0000000001100, slot 48
     End(BlockPatternEntry::Invalid), //0000000001101, slot 49
     Fork(51, 52), //000000000111x, slot 50
     End(BlockPatternEntry::Valid(
-        MacroblockType::Inter4VQ,
+        MacroblockType::Inter4Vq,
         true,
         false,
     )), //0000000001110, slot 51
     End(BlockPatternEntry::Valid(
-        MacroblockType::Inter4VQ,
+        MacroblockType::Inter4Vq,
         true,
         true,
     )), //0000000001111, slot 52
@@ -428,8 +428,8 @@ where
 
             Ok((x, y).into())
         } else {
-            let x = HalfPel::from(reader.read_vlc(&MVD_TABLE[..])?.ok_or(Error::InvalidMVD)?);
-            let y = HalfPel::from(reader.read_vlc(&MVD_TABLE[..])?.ok_or(Error::InvalidMVD)?);
+            let x = HalfPel::from(reader.read_vlc(&MVD_TABLE[..])?.ok_or(Error::InvalidMvd)?);
+            let y = HalfPel::from(reader.read_vlc(&MVD_TABLE[..])?.ok_or(Error::InvalidMvd)?);
 
             Ok((x, y).into())
         }
@@ -470,7 +470,7 @@ where
                 BlockPatternEntry::Valid(mbt, chroma_b, chroma_r) => (mbt, chroma_b, chroma_r),
             };
 
-            let (has_cbpb, has_mvdb) = if matches!(picture.picture_type, PictureTypeCode::PBFrame) {
+            let (has_cbpb, has_mvdb) = if matches!(picture.picture_type, PictureTypeCode::PbFrame) {
                 reader.read_vlc(&MODB_TABLE[..])?
             } else {
                 (false, false)
@@ -729,19 +729,19 @@ mod tests {
         );
         assert_eq!(
             reader.read_vlc(&MCBPC_P_TABLE).unwrap(),
-            BlockPatternEntry::Valid(MacroblockType::Inter4VQ, false, false)
+            BlockPatternEntry::Valid(MacroblockType::Inter4Vq, false, false)
         );
         assert_eq!(
             reader.read_vlc(&MCBPC_P_TABLE).unwrap(),
-            BlockPatternEntry::Valid(MacroblockType::Inter4VQ, false, true)
+            BlockPatternEntry::Valid(MacroblockType::Inter4Vq, false, true)
         );
         assert_eq!(
             reader.read_vlc(&MCBPC_P_TABLE).unwrap(),
-            BlockPatternEntry::Valid(MacroblockType::Inter4VQ, true, false)
+            BlockPatternEntry::Valid(MacroblockType::Inter4Vq, true, false)
         );
         assert_eq!(
             reader.read_vlc(&MCBPC_P_TABLE).unwrap(),
-            BlockPatternEntry::Valid(MacroblockType::Inter4VQ, true, true)
+            BlockPatternEntry::Valid(MacroblockType::Inter4Vq, true, true)
         );
         assert_eq!(
             reader.read_vlc(&MCBPC_P_TABLE).unwrap(),

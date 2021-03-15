@@ -71,7 +71,7 @@ pub struct Picture {
     ///
     /// Indicates the temporal reference of the picture to be used to
     /// reconstruct this picture. Must not be specified if this is an `IFrame`
-    /// or `EIFrame`. For `BFrame`s, this field indicates the reference number
+    /// or `EiFrame`. For `BFrame`s, this field indicates the reference number
     /// of the forward-predicted reference frame. If not specified, intra
     /// prediction proceeds as if `REFERENCE_PICTURE_SELECTION` had not been
     /// enabled.
@@ -130,24 +130,24 @@ pub struct Picture {
 /// video resolution is 352x288 @ 30000/1001hz.
 ///
 /// Most other `SourceFormat` variants are multiples of the CIF picture count.
-/// Note that the multiples refer to total pixel count; i.e. a `FourCIF` format
-/// image is twice the width and height of a `FullCIF` format image.
+/// Note that the multiples refer to total pixel count; i.e. a `FourCif` format
+/// image is twice the width and height of a `FullCif` format image.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum SourceFormat {
     /// 128x96 @ 30000/1001hz
-    SubQCIF,
+    SubQcif,
 
     /// 176x144 @ 30000/1001hz
-    QuarterCIF,
+    QuarterCif,
 
     /// 352x288 @ 30000/1001hz
-    FullCIF,
+    FullCif,
 
     /// 704x576 @ 30000/1001hz
-    FourCIF,
+    FourCif,
 
     /// 1408x1152 @ 30000/1001hz
-    SixteenCIF,
+    SixteenCif,
 
     /// Reserved by H.264 spec. Does not appear to be in use.
     Reserved,
@@ -167,11 +167,11 @@ impl SourceFormat {
     /// This function returns `None` if the source format is `Reserved`.
     pub fn into_width_and_height(self) -> Option<(u16, u16)> {
         match self {
-            Self::SubQCIF => Some((128, 96)),
-            Self::QuarterCIF => Some((176, 144)),
-            Self::FullCIF => Some((352, 288)),
-            Self::FourCIF => Some((704, 576)),
-            Self::SixteenCIF => Some((1408, 1152)),
+            Self::SubQcif => Some((128, 96)),
+            Self::QuarterCif => Some((176, 144)),
+            Self::FullCif => Some((352, 288)),
+            Self::FourCif => Some((704, 576)),
+            Self::SixteenCif => Some((1408, 1152)),
             Self::Reserved => None,
             Self::Extended(cpf) => {
                 Some((cpf.picture_width_indication, cpf.picture_height_indication))
@@ -255,20 +255,20 @@ pub enum PictureTypeCode {
     PFrame,
 
     /// PB frames.
-    PBFrame,
+    PbFrame,
 
     /// "Improved" PB frames.
-    ImprovedPBFrame,
+    ImprovedPbFrame,
 
     /// A partial picture update that references up to two decoded frames, any
     /// of which may be future frames.
     BFrame,
 
     /// EI frames
-    EIFrame,
+    EiFrame,
 
     /// EP frames
-    EPFrame,
+    EpFrame,
 
     /// A reserved picture type code.
     ///
@@ -289,7 +289,7 @@ pub enum PictureTypeCode {
 impl PictureTypeCode {
     /// Determine if this picture type is either kind of PB frame.
     pub fn is_any_pbframe(self) -> bool {
-        matches!(self, Self::PBFrame) || matches!(self, Self::ImprovedPBFrame)
+        matches!(self, Self::PbFrame) || matches!(self, Self::ImprovedPbFrame)
     }
 
     pub fn is_disposable(self) -> bool {
@@ -631,7 +631,7 @@ pub enum MacroblockType {
     IntraQ,
 
     /// Macroblock with quantizer delta and motion vectors.
-    Inter4VQ,
+    Inter4Vq,
 }
 
 impl MacroblockType {
@@ -640,7 +640,7 @@ impl MacroblockType {
         matches!(self, Self::Inter)
             || matches!(self, Self::InterQ)
             || matches!(self, Self::Inter4V)
-            || matches!(self, Self::Inter4VQ)
+            || matches!(self, Self::Inter4Vq)
     }
 
     /// Determine if this is an `INTRA` macroblock.
@@ -650,14 +650,14 @@ impl MacroblockType {
 
     /// Determine if this macroblock has four motion vectors.
     pub fn has_fourvec(self) -> bool {
-        matches!(self, Self::Inter4V) || matches!(self, Self::Inter4VQ)
+        matches!(self, Self::Inter4V) || matches!(self, Self::Inter4Vq)
     }
 
     /// Determine if this macroblock has it's own quantizer.
     pub fn has_quantizer(self) -> bool {
         matches!(self, Self::InterQ)
             || matches!(self, Self::IntraQ)
-            || matches!(self, Self::Inter4VQ)
+            || matches!(self, Self::Inter4Vq)
     }
 }
 
@@ -872,7 +872,7 @@ impl Div<i16> for MotionVector {
 #[derive(PartialEq, Eq, Debug)]
 pub struct Block {
     /// The DC component of the block, if present.
-    pub intradc: Option<IntraDC>,
+    pub intradc: Option<IntraDc>,
 
     /// All remaining block coefficients, stored as `TCOEF` events.
     pub tcoef: Vec<TCoefficient>,
@@ -883,10 +883,10 @@ pub struct Block {
 /// The DC coefficient for intra blocks is coded in a somewhat weird way; this
 /// struct handles coding it.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct IntraDC(u8);
+pub struct IntraDc(u8);
 
-impl IntraDC {
-    /// Convert a fixed-level code u8 into an IntraDC value.
+impl IntraDc {
+    /// Convert a fixed-level code u8 into an IntraDc value.
     ///
     /// This function yields `None` for values that are not valid FLC values
     /// as per Table 15/H.263.
@@ -894,11 +894,11 @@ impl IntraDC {
         if value == 0 || value == 128 {
             None
         } else {
-            Some(IntraDC(value))
+            Some(IntraDc(value))
         }
     }
 
-    /// Convert a reconstruction level into an IntraDC value.
+    /// Convert a reconstruction level into an IntraDc value.
     ///
     /// This function yields `None` for out-of-range or otherwise
     /// unrepresentable level constants.
@@ -908,10 +908,10 @@ impl IntraDC {
         }
 
         if value == 1024 {
-            return Some(IntraDC(0xFF));
+            return Some(IntraDc(0xFF));
         }
 
-        Some(IntraDC((value >> 3) as u8))
+        Some(IntraDc((value >> 3) as u8))
     }
 
     /// Retrieve the reconstruction level of the DC component.
