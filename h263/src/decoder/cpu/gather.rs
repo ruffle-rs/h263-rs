@@ -78,6 +78,12 @@ fn gather_block(
             }
 
             let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
+
+            if !x_interp && !y_interp {
+                target[pos.0 + i + ((pos.1 + j) * samples_per_row)] = sample_0_0;
+                continue;
+            }
+
             let sample_1_0 = read_sample(pixel_array, samples_per_row, (u + 1, v));
             let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));
             let sample_1_1 = read_sample(pixel_array, samples_per_row, (u + 1, v + 1));
