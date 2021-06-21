@@ -16,23 +16,11 @@ use crate::types::{MacroblockType, MotionVector};
 fn read_sample(pixel_array: &[u8], samples_per_row: usize, pos: (isize, isize)) -> u8 {
     let (x, y) = pos;
 
-    let x = if x < 0 {
-        0
-    } else if x >= samples_per_row as isize {
-        samples_per_row.saturating_sub(1)
-    } else {
-        x as usize
-    };
+    let x = x.clamp(0, samples_per_row.saturating_sub(1) as isize) as usize;
 
     let height = pixel_array.len() / samples_per_row;
 
-    let y = if y < 0 {
-        0
-    } else if y >= height as isize {
-        height.saturating_sub(1)
-    } else {
-        y as usize
-    };
+    let y = y.clamp(0, height.saturating_sub(1) as isize) as usize;
 
     pixel_array
         .get(x + (y * samples_per_row))
