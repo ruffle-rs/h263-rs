@@ -70,36 +70,39 @@ fn gather_block(
     let block_cols = (samples_per_row as isize - pos.0 as isize).clamp(0, 8);
     let block_rows = (array_height as isize - pos.1 as isize).clamp(0, 8);
 
-    for (j, v) in (y..y + block_rows).enumerate() {
-        for (i, u) in (x..x + block_cols).enumerate() {
-            let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
-
-            if !x_interp && !y_interp {
-                target[pos.0 + i + ((pos.1 + j) * samples_per_row)] = sample_0_0;
-                continue;
-            }
-
-            let sample_1_0 = read_sample(pixel_array, samples_per_row, (u + 1, v));
-            let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));
-            let sample_1_1 = read_sample(pixel_array, samples_per_row, (u + 1, v + 1));
-
-            if x_interp && y_interp {
-                // special case to only round once
-
-                let sample = ((sample_0_0 as u16
-                    + sample_1_0 as u16
-                    + sample_0_1 as u16
-                    + sample_1_1 as u16
-                    + 2) // for proper rounding
-                    / 4) as u8;
-
-                target[pos.0 + i + ((pos.1 + j) * samples_per_row)] = sample;
-            } else {
-                let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
-                let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
-
+    if !x_interp && !y_interp {
+        for (j, v) in (y..y + block_rows).enumerate() {
+            for (i, u) in (x..x + block_cols).enumerate() {
                 target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
-                    lerp(sample_mid_0, sample_mid_1, y_interp);
+                    read_sample(pixel_array, samples_per_row, (u, v));
+            }
+        }
+    } else {
+        for (j, v) in (y..y + block_rows).enumerate() {
+            for (i, u) in (x..x + block_cols).enumerate() {
+                let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
+                let sample_1_0 = read_sample(pixel_array, samples_per_row, (u + 1, v));
+                let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));
+                let sample_1_1 = read_sample(pixel_array, samples_per_row, (u + 1, v + 1));
+
+                if x_interp && y_interp {
+                    // special case to only round once
+
+                    let sample = ((sample_0_0 as u16
+                        + sample_1_0 as u16
+                        + sample_0_1 as u16
+                        + sample_1_1 as u16
+                        + 2) // for proper rounding
+                        / 4) as u8;
+
+                    target[pos.0 + i + ((pos.1 + j) * samples_per_row)] = sample;
+                } else {
+                    let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
+                    let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
+
+                    target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
+                        lerp(sample_mid_0, sample_mid_1, y_interp);
+                }
             }
         }
     }
