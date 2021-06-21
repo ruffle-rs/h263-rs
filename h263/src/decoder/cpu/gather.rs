@@ -13,14 +13,16 @@ use crate::types::{MacroblockType, MotionVector};
 /// equivalent to, say OpenGL `GL_CLAMP_TO_EDGE` behavior.)
 ///
 /// Pixel array data is read as a row-major (x + y*width) array.
-fn read_sample(pixel_array: &[u8], samples_per_row: usize, pos: (isize, isize)) -> u8 {
+fn read_sample(
+    pixel_array: &[u8],
+    samples_per_row: usize,
+    num_rows: usize,
+    pos: (isize, isize),
+) -> u8 {
     let (x, y) = pos;
 
     let x = x.clamp(0, samples_per_row.saturating_sub(1) as isize) as usize;
-
-    let height = pixel_array.len() / samples_per_row;
-
-    let y = y.clamp(0, height.saturating_sub(1) as isize) as usize;
+    let y = y.clamp(0, num_rows.saturating_sub(1) as isize) as usize;
 
     pixel_array
         .get(x + (y * samples_per_row))
@@ -62,16 +64,19 @@ fn gather_block(
         for (j, v) in (y..y + block_rows).enumerate() {
             for (i, u) in (x..x + block_cols).enumerate() {
                 target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
-                    read_sample(pixel_array, samples_per_row, (u, v));
+                    read_sample(pixel_array, samples_per_row, array_height, (u, v));
             }
         }
     } else {
         for (j, v) in (y..y + block_rows).enumerate() {
             for (i, u) in (x..x + block_cols).enumerate() {
-                let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
-                let sample_1_0 = read_sample(pixel_array, samples_per_row, (u + 1, v));
-                let sample_0_1 = read_sample(pixel_array, samples_per_row, (u, v + 1));
-                let sample_1_1 = read_sample(pixel_array, samples_per_row, (u + 1, v + 1));
+                let sample_0_0 = read_sample(pixel_array, samples_per_row, array_height, (u, v));
+                let sample_1_0 =
+                    read_sample(pixel_array, samples_per_row, array_height, (u + 1, v));
+                let sample_0_1 =
+                    read_sample(pixel_array, samples_per_row, array_height, (u, v + 1));
+                let sample_1_1 =
+                    read_sample(pixel_array, samples_per_row, array_height, (u + 1, v + 1));
 
                 if x_interp && y_interp {
                     // special case to only round once
