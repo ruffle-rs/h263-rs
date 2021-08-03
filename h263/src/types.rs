@@ -521,10 +521,17 @@ pub enum WarpingDisplacementAccuracy {
 /// ITU-T Recommendation H.263 (01/2005), 5.1.23 `DBQUANT`
 #[derive(Debug)]
 pub enum BPictureQuantizer {
-    FiveFourths,
-    SixFourths,
-    SevenFourths,
-    EightFourths,
+    /// B-Quantizer is five-fourths
+    Five,
+
+    /// B-Quantizer is six-fourths
+    Six,
+
+    /// B-Quantizer is seven-fourths
+    Seven,
+
+    /// B-Quantizer is eight-fourths
+    Eight,
 }
 
 /// ITU-T Recommendation H.263 (01/2005), 5.2.x `GN`, `GSBI`, `GFID`, `GQUANT`

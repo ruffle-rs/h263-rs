@@ -563,10 +563,10 @@ where
     R: Read,
 {
     reader.with_transaction(|reader| match reader.read_bits::<u8>(2)? {
-        0 => Ok(BPictureQuantizer::FiveFourths),
-        1 => Ok(BPictureQuantizer::SixFourths),
-        2 => Ok(BPictureQuantizer::SevenFourths),
-        3 => Ok(BPictureQuantizer::EightFourths),
+        0 => Ok(BPictureQuantizer::Five),
+        1 => Ok(BPictureQuantizer::Six),
+        2 => Ok(BPictureQuantizer::Seven),
+        3 => Ok(BPictureQuantizer::Eight),
         _ => Err(Error::InternalDecoderError),
     })
 }

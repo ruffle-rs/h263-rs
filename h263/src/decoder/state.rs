@@ -183,7 +183,7 @@ impl H263State {
             loop {
                 let mb = decode_macroblock(
                     reader,
-                    &next_decoded_picture.as_header(),
+                    next_decoded_picture.as_header(),
                     next_running_options,
                 );
                 let pos = (
