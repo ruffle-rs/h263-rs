@@ -70,8 +70,8 @@ fn gather_block(
     let block_cols = (samples_per_row as isize - pos.0 as isize).clamp(0, 8);
     let block_rows = (array_height as isize - pos.1 as isize).clamp(0, 8);
 
-    for (i, u) in (x..x + block_cols).enumerate() {
-        for (j, v) in (y..y + block_rows).enumerate() {
+    for (j, v) in (y..y + block_rows).enumerate() {
+        for (i, u) in (x..x + block_cols).enumerate() {
             let sample_0_0 = read_sample(pixel_array, samples_per_row, (u, v));
 
             if !x_interp && !y_interp {
