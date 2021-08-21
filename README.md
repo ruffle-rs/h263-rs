@@ -6,7 +6,7 @@
       <img src="https://img.shields.io/discord/610531541889581066" alt="Ruffle Discord">
   </a>
   <br>
-  <strong><a href="https://ruffle.rs">website</a> | <a href="https://ruffle.rs/demo">demo</a> | <a href="https://github.com/ruffle-rs/h263-rs/releases">nightly builds</a> | <a href="https://github.com/ruffle-rs/h263-rs/wiki">wiki</a></strong>
+  <strong><a href="https://ruffle.rs">website</a></strong>
 </p>
 
 # h263-rs
