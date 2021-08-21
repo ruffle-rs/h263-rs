@@ -1,13 +1,12 @@
 <p align="center">
  <a href="https://github.com/ruffle-rs/h263-rs/actions">
   <img src="https://img.shields.io/github/workflow/status/ruffle-rs/h263-rs/Test%20Rust?label=rust%20build" alt="Rust Build Status" />
-  <img src="https://img.shields.io/github/workflow/status/ruffle-rs/h263-rs/Test%20Web?label=web%20build" alt="Web Build Status" />
  </a>
   <a href="https://discord.gg/ruffle">
       <img src="https://img.shields.io/discord/610531541889581066" alt="Ruffle Discord">
   </a>
   <br>
-  <strong><a href="https://ruffle.rs">website</a> | <a href="https://ruffle.rs/demo">demo</a> | <a href="https://github.com/ruffle-rs/h263-rs/releases">nightly builds</a> | <a href="https://github.com/ruffle-rs/h263-rs/wiki">wiki</a></strong>
+  <strong><a href="https://ruffle.rs">website</a> | <a href="https://github.com/ruffle-rs/h263-rs/releases">nightly builds</a> | <a href="https://github.com/ruffle-rs/h263-rs/wiki">wiki</a></strong>
 </p>
 
 # h263-rs
