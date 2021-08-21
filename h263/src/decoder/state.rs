@@ -6,8 +6,8 @@ use crate::decoder::types::DecoderOption;
 use crate::error::{Error, Result};
 use crate::parser::{decode_block, decode_gob, decode_macroblock, decode_picture, H263Reader};
 use crate::types::{
-    GroupOfBlocks, Macroblock, MacroblockType, MotionVector, PictureOption, PictureTypeCode,
-    MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
+    GroupOfBlocks, Macroblock, MacroblockType, MotionVector, Picture, PictureOption,
+    PictureTypeCode, MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
 };
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -98,6 +98,19 @@ impl H263State {
         }
     }
 
+    /// Parse a picture from the reader using the current state's decoder
+    /// options.
+    pub fn parse_picture<R>(
+        &self,
+        reader: &mut H263Reader<R>,
+        previous_picture: Option<&Picture>,
+    ) -> Result<Option<Picture>>
+    where
+        R: Read,
+    {
+        decode_picture(reader, self.decoder_options, previous_picture)
+    }
+
     /// Decode the next picture in the bitstream.
     ///
     /// This does not yield any picture data: it merely advances the state of
@@ -128,12 +141,9 @@ impl H263State {
         R: Read,
     {
         reader.with_transaction(|reader| {
-            let next_picture = decode_picture(
-                reader,
-                self.decoder_options,
-                self.get_last_picture().map(|p| p.as_header()),
-            )?
-            .ok_or(Error::MiddleOfBitstream)?;
+            let next_picture = self
+                .parse_picture(reader, self.get_last_picture().map(|p| p.as_header()))?
+                .ok_or(Error::MiddleOfBitstream)?;
 
             let next_running_options = if next_picture.has_plusptype && next_picture.has_opptype {
                 next_picture.options
