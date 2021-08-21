@@ -52,23 +52,9 @@ jobs:
           command: clippy
           args: --all --tests -- -D warnings
 
-      - name: Run tests with image tests
-        if: ${{ matrix.os.img_tests }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --features imgtests
-
-      - name: Run tests without image tests
+      - name: Run tests
         if: ${{ !matrix.os.img_tests }}
         uses: actions-rs/cargo@v1
         with:
           command: test
-
-      - name: Upload images
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: swf_images
-          path: tests/**/*.png.updated
 
