@@ -1,8 +1,6 @@
 //! YUV-to-RGB decode
 
-fn clamp(v: f32) -> u8 {
-    (v + 0.5) as u8
-}
+use lazy_static::lazy_static;
 
 fn clamped_index(width: i32, height: i32, x: i32, y: i32) -> usize {
     (x.max(0).min(width - 1) + (y.max(0).min(height - 1) * width)) as usize
@@ -86,34 +84,97 @@ fn sample_chroma_for_luma(
     ((sample + 8) / 16) as u8
 }
 
-fn yuv_to_rgb(yuv: (f32, f32, f32)) -> (f32, f32, f32) {
-    let (mut y_sample, mut b_sample, mut r_sample) = yuv;
-
-    y_sample = (y_sample - 16.0) * (255.0 / (235.0 - 16.0));
-    b_sample = (b_sample - 16.0) * (255.0 / (240.0 - 16.0)) - 128.0;
-    r_sample = (r_sample - 16.0) * (255.0 / (240.0 - 16.0)) - 128.0;
-
-    let r = y_sample + r_sample * 1.370705;
-    let g = y_sample + r_sample * -0.698001 + b_sample * -0.337633;
-    let b = y_sample + b_sample * 1.732446;
-
-    (r, g, b)
+/// Precomputes and stores the linear functions for converting YUV (YCb'Cr' to be precise)
+/// colors to RGB (sRGB-like, with gamma) colors, in signed 12.4 fixed-point integer format.
+///
+/// Since the incoming components are u8, and there is only ever at most 3 of them added
+/// at once (when computing the G channel), only about 10 bits would be used if they were
+/// u8 - so to get some more precision (and reduce potential stepping artifacts), might
+/// as well use about 14 of the 15 (not counting the sign bit) available in i16.
+struct LUTs {
+    /// the contribution of the Y component into all RGB channels
+    pub y_to_gray: [i16; 256],
+    /// the contribution of the V (Cr') component into the R channel
+    pub cr_to_r: [i16; 256],
+    /// the contribution of the V (Cr') component into the G channel
+    pub cr_to_g: [i16; 256],
+    /// the contribution of the U (Cb') component into the G channel
+    pub cb_to_g: [i16; 256],
+    /// the contribution of the U (Cb') component into the B channel
+    pub cb_to_b: [i16; 256],
 }
 
+impl LUTs {
+    pub fn new() -> LUTs {
+        // - Y needs to be remapped linearly from 16..235 to 0..255
+        // - Cr' and Cb' (a.k.a. V and U) need to be remapped linearly from 16..240 to 0..255,
+        //     then shifted to -128..127, and then scaled by the appropriate coefficients
+        // - Finally all values are multiplied by 16 (1<<4) to turn them into 12.4 format, and rounded to integer.
+        fn remap_luma(luma: f32) -> i16 {
+            ((luma - 16.0) * (255.0 / (235.0 - 16.0)) * 16.0).round() as i16
+        }
+        fn remap_chroma(chroma: f32, coeff: f32) -> i16 {
+            (((chroma - 16.0) * (255.0 / (240.0 - 16.0)) - 128.0) * coeff * 16.0).round() as i16
+        }
+
+        let mut y_to_gray = [0i16; 256];
+        let mut cr_to_r = [0i16; 256];
+        let mut cr_to_g = [0i16; 256];
+        let mut cb_to_g = [0i16; 256];
+        let mut cb_to_b = [0i16; 256];
+
+        for i in 0..256 {
+            let f = i as f32;
+            y_to_gray[i] = remap_luma(f);
+            cr_to_r[i] = remap_chroma(f, 1.370705); // sanity check: Cr' contributes "positively" to R
+            cr_to_g[i] = remap_chroma(f, -0.698001); // sanity check: Cr' contributes "negatively" to G
+            cb_to_g[i] = remap_chroma(f, -0.337633); // sanity check: Cb' contributes "negatively" to G
+            cb_to_b[i] = remap_chroma(f, 1.732446); // sanity check: Cb' contributes "positively" to B
+        }
+
+        LUTs {
+            y_to_gray,
+            cr_to_r,
+            cr_to_g,
+            cb_to_g,
+            cb_to_b,
+        }
+    }
+}
+
+lazy_static! {
+    static ref LUTS: LUTs = LUTs::new();
+}
+
+#[inline]
 fn convert_and_write_pixel(
-    yuv: (f32, f32, f32),
+    yuv: (u8, u8, u8),
     rgba: &mut Vec<u8>,
     width: usize,
     x_pos: usize,
     y_pos: usize,
+    luts: &LUTs,
 ) {
-    let (r, g, b) = yuv_to_rgb(yuv);
+    let (y_sample, b_sample, r_sample) = yuv;
+
+    // We rely on the optimizers in rustc/LLVM to eliminate the bounds checks when indexing
+    // into the fixed 256-long arrays in `luts` with indices coming in as `u8` parameters.
+    // This is crucial for performance, as this function runs in a fairly tight loop, on all pixels.
+    // I verified that this is actually happening, see here: https://rust.godbolt.org/z/vWzesYzbq
+    // And benchmarking showed no time difference from an `unsafe` + `get_unchecked()` solution.
+
+    let y = luts.y_to_gray[y_sample as usize];
+
+    // The `(... + 8) >> 4` parts convert back from 12.4 fixed-point to `u8` with correct rounding.
+    // (At least for positive numbers - any negative numbers that might occur will be clamped to 0 anyway.)
+    let r = (y + luts.cr_to_r[r_sample as usize] + 8) >> 4;
+    let g = (y + luts.cr_to_g[r_sample as usize] + luts.cb_to_g[b_sample as usize] + 8) >> 4;
+    let b = (y + luts.cb_to_b[b_sample as usize] + 8) >> 4;
 
     let base = (x_pos + y_pos * width) * 4;
-    rgba[base] = clamp(r);
-    rgba[base + 1] = clamp(g);
-    rgba[base + 2] = clamp(b);
-    rgba[base + 3] = 255;
+    rgba[base] = r.clamp(0, 255) as u8;
+    rgba[base + 1] = g.clamp(0, 255) as u8;
+    rgba[base + 2] = b.clamp(0, 255) as u8;
 }
 
 /// Convert YUV 4:2:0 data into RGB 1:1:1 data.
@@ -131,16 +192,20 @@ pub fn yuv420_to_rgba(
     let y_height = y.len() / y_width;
     let br_height = chroma_b.len() / br_width;
 
-    let mut rgba = vec![0; y.len() * 4];
+    // prefilling with 255, so the tight loop won't need to write to the alpha channel
+    let mut rgba = vec![255; y.len() * 4];
+
+    // making sure that the "is it initialized already?" check is only done once per frame by getting a direct reference
+    let luts: &LUTs = &*LUTS;
 
     // do the bulk of the pixels faster, with no clamping, leaving out the edges
     for y_pos in 1..y_height - 1 {
         for x_pos in 1..y_width - 1 {
-            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0) as f32;
+            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0);
             let b_sample =
-                sample_chroma_for_luma(chroma_b, br_width, br_height, x_pos, y_pos, false) as f32;
+                sample_chroma_for_luma(chroma_b, br_width, br_height, x_pos, y_pos, false);
             let r_sample =
-                sample_chroma_for_luma(chroma_r, br_width, br_height, x_pos, y_pos, false) as f32;
+                sample_chroma_for_luma(chroma_r, br_width, br_height, x_pos, y_pos, false);
 
             convert_and_write_pixel(
                 (y_sample, b_sample, r_sample),
@@ -148,6 +213,7 @@ pub fn yuv420_to_rgba(
                 y_width,
                 x_pos,
                 y_pos,
+                luts,
             );
         }
     }
@@ -155,11 +221,11 @@ pub fn yuv420_to_rgba(
     // doing the sides with clamping
     for y_pos in 0..y_height {
         for x_pos in [0, y_width - 1].iter() {
-            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0) as f32;
+            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0);
             let b_sample =
-                sample_chroma_for_luma(chroma_b, br_width, br_height, *x_pos, y_pos, true) as f32;
+                sample_chroma_for_luma(chroma_b, br_width, br_height, *x_pos, y_pos, true);
             let r_sample =
-                sample_chroma_for_luma(chroma_r, br_width, br_height, *x_pos, y_pos, true) as f32;
+                sample_chroma_for_luma(chroma_r, br_width, br_height, *x_pos, y_pos, true);
 
             convert_and_write_pixel(
                 (y_sample, b_sample, r_sample),
@@ -167,18 +233,19 @@ pub fn yuv420_to_rgba(
                 y_width,
                 *x_pos,
                 y_pos,
+                luts,
             );
         }
     }
 
     // doing the top and bottom edges with clamping
-    for x_pos in 0..y_width {
-        for y_pos in [0, y_height - 1].iter() {
-            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0) as f32;
+    for y_pos in [0, y_height - 1].iter() {
+        for x_pos in 0..y_width {
+            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0);
             let b_sample =
-                sample_chroma_for_luma(chroma_b, br_width, br_height, x_pos, *y_pos, true) as f32;
+                sample_chroma_for_luma(chroma_b, br_width, br_height, x_pos, *y_pos, true);
             let r_sample =
-                sample_chroma_for_luma(chroma_r, br_width, br_height, x_pos, *y_pos, true) as f32;
+                sample_chroma_for_luma(chroma_r, br_width, br_height, x_pos, *y_pos, true);
 
             convert_and_write_pixel(
                 (y_sample, b_sample, r_sample),
@@ -186,6 +253,7 @@ pub fn yuv420_to_rgba(
                 y_width,
                 x_pos,
                 *y_pos,
+                luts,
             );
         }
     }
