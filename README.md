@@ -12,13 +12,13 @@
 
 # h263-rs
 
-h263-rs is a pure-Rust implementation of ITU-T Recommendation H.263 (2005/08), a video codec commonly used in early VoIP telephony and multimedia systems including Sorenson Spark and Adobe Flash Player. It is used primarily in Ruffle to prove H.263 video decoding capability.
+h263-rs is a pure-Rust implementation of ITU-T Recommendation H.263 (2005/08), a video codec commonly used in early VoIP telephony and multimedia systems including Sorenson Spark and Adobe Flash Player. It is used primarily in Ruffle to provide H.263 video decoding capability.
 
 ## Project status
 
 h263-rs correctly decodes most Sorenson-flavor video streams. No attempt has yet been made to test other flavors of H.263, or any of the additional features in later versions of H.263.
 
-There is currently no support for encoding h.263 video of any flavor.
+There is currently no support for encoding H.263 video of any flavor.
 ## Using h263-rs
 
 Currently, this only ships as a library, which must be integrated in another project to play video.
