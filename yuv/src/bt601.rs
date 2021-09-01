@@ -38,31 +38,31 @@ fn sample_chroma_for_luma(
             (luma_y as i32 - 1) / 2
         };
 
-        sample_00 = chroma
-            .get(clamped_index(width, height, chroma_x, chroma_y))
-            .copied()
-            .unwrap_or(0) as u16;
-        sample_10 = chroma
-            .get(clamped_index(width, height, chroma_x + 1, chroma_y))
-            .copied()
-            .unwrap_or(0) as u16;
-        sample_01 = chroma
-            .get(clamped_index(width, height, chroma_x, chroma_y + 1))
-            .copied()
-            .unwrap_or(0) as u16;
-        sample_11 = chroma
-            .get(clamped_index(width, height, chroma_x + 1, chroma_y + 1))
-            .copied()
-            .unwrap_or(0) as u16;
+        debug_assert!(clamped_index(width, height, chroma_x + 1, chroma_y + 1) < chroma.len());
+        unsafe {
+            sample_00 =
+                *chroma.get_unchecked(clamped_index(width, height, chroma_x, chroma_y)) as u16;
+            sample_10 =
+                *chroma.get_unchecked(clamped_index(width, height, chroma_x + 1, chroma_y)) as u16;
+            sample_01 =
+                *chroma.get_unchecked(clamped_index(width, height, chroma_x, chroma_y + 1)) as u16;
+            sample_11 =
+                *chroma.get_unchecked(clamped_index(width, height, chroma_x + 1, chroma_y + 1))
+                    as u16;
+        }
     } else {
         let chroma_x = (luma_x as i32 - 1) / 2;
         let chroma_y = (luma_y as i32 - 1) / 2;
 
         let base = unclamped_index(width, chroma_x, chroma_y);
-        sample_00 = chroma.get(base).copied().unwrap_or(0) as u16;
-        sample_10 = chroma.get(base + 1).copied().unwrap_or(0) as u16;
-        sample_01 = chroma.get(base + chroma_width).copied().unwrap_or(0) as u16;
-        sample_11 = chroma.get(base + chroma_width + 1).copied().unwrap_or(0) as u16;
+
+        debug_assert!(base + chroma_width + 1 < chroma.len());
+        unsafe {
+            sample_00 = *chroma.get_unchecked(base) as u16;
+            sample_10 = *chroma.get_unchecked(base + 1) as u16;
+            sample_01 = *chroma.get_unchecked(base + chroma_width) as u16;
+            sample_11 = *chroma.get_unchecked(base + chroma_width + 1) as u16;
+        }
     }
 
     let interp_left = luma_x % 2 != 0;
