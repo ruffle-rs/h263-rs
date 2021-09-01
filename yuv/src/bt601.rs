@@ -164,9 +164,11 @@ fn convert_and_write_pixel(yuv: (u8, u8, u8), rgba: &mut Vec<u8>, base: usize, l
     let g = (y + luts.cr_to_g[r_sample as usize] + luts.cb_to_g[b_sample as usize] + 8) >> 4;
     let b = (y + luts.cb_to_b[b_sample as usize] + 8) >> 4;
 
-    rgba[base] = r.clamp(0, 255) as u8;
-    rgba[base + 1] = g.clamp(0, 255) as u8;
-    rgba[base + 2] = b.clamp(0, 255) as u8;
+    // the unsafes down here rely on the fact that base will not overflow rgba
+    debug_assert!(base + 4 <= rgba.len()); // the + 4 is for the alpha channel, even though we're not writing that here
+    *unsafe { rgba.get_unchecked_mut(base) } = r.clamp(0, 255) as u8;
+    *unsafe { rgba.get_unchecked_mut(base + 1) } = g.clamp(0, 255) as u8;
+    *unsafe { rgba.get_unchecked_mut(base + 2) } = b.clamp(0, 255) as u8;
 }
 
 /// Convert YUV 4:2:0 data into RGB 1:1:1 data.
