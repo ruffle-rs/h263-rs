@@ -2,88 +2,6 @@
 
 use lazy_static::lazy_static;
 
-fn clamped_index(width: i32, height: i32, x: i32, y: i32) -> usize {
-    (x.clamp(0, width - 1) + (y.clamp(0, height - 1) * width)) as usize
-}
-
-fn unclamped_index(width: i32, x: i32, y: i32) -> usize {
-    (x + y * width) as usize
-}
-
-fn sample_chroma_for_luma(
-    chroma: &[u8],
-    chroma_width: usize,
-    chroma_height: usize,
-    luma_x: usize,
-    luma_y: usize,
-    clamp: bool,
-) -> u8 {
-    let width = chroma_width as i32;
-    let height = chroma_height as i32;
-
-    let sample_00;
-    let sample_01;
-    let sample_10;
-    let sample_11;
-
-    if clamp {
-        let chroma_x = if luma_x == 0 {
-            -1
-        } else {
-            (luma_x as i32 - 1) / 2
-        };
-        let chroma_y = if luma_y == 0 {
-            -1
-        } else {
-            (luma_y as i32 - 1) / 2
-        };
-
-        sample_00 = chroma
-            .get(clamped_index(width, height, chroma_x, chroma_y))
-            .copied()
-            .unwrap_or(0) as u16;
-        sample_10 = chroma
-            .get(clamped_index(width, height, chroma_x + 1, chroma_y))
-            .copied()
-            .unwrap_or(0) as u16;
-        sample_01 = chroma
-            .get(clamped_index(width, height, chroma_x, chroma_y + 1))
-            .copied()
-            .unwrap_or(0) as u16;
-        sample_11 = chroma
-            .get(clamped_index(width, height, chroma_x + 1, chroma_y + 1))
-            .copied()
-            .unwrap_or(0) as u16;
-    } else {
-        let chroma_x = (luma_x as i32 - 1) / 2;
-        let chroma_y = (luma_y as i32 - 1) / 2;
-
-        let base = unclamped_index(width, chroma_x, chroma_y);
-        sample_00 = chroma.get(base).copied().unwrap_or(0) as u16;
-        sample_10 = chroma.get(base + 1).copied().unwrap_or(0) as u16;
-        sample_01 = chroma.get(base + chroma_width).copied().unwrap_or(0) as u16;
-        sample_11 = chroma.get(base + chroma_width + 1).copied().unwrap_or(0) as u16;
-    }
-
-    let interp_left = luma_x % 2 != 0;
-    let interp_top = luma_y % 2 != 0;
-
-    let mut sample: u16 = 0;
-    sample += sample_00 * if interp_left { 3 } else { 1 };
-    sample += sample_10 * if interp_left { 1 } else { 3 };
-
-    sample += sample_01 * if interp_left { 3 } else { 1 };
-    sample += sample_11 * if interp_left { 1 } else { 3 };
-
-    sample += sample_00 * if interp_top { 3 } else { 1 };
-    sample += sample_01 * if interp_top { 1 } else { 3 };
-
-    sample += sample_10 * if interp_top { 3 } else { 1 };
-    sample += sample_11 * if interp_top { 1 } else { 3 };
-
-    ((sample + 8) / 16) as u8
-}
-
 /// Precomputes and stores the linear functions for converting YUV (YCb'Cr' to be precise)
 /// colors to RGB (sRGB-like, with gamma) colors, in signed 12.4 fixed-point integer format.
 ///
@@ -175,28 +93,20 @@ fn yuv_to_rgb(yuv: (u8, u8, u8), luts: &LUTs) -> (u8, u8, u8) {
     )
 }
 
-#[inline]
-fn convert_and_write_pixel(
-    yuv: (u8, u8, u8),
-    rgba: &mut Vec<u8>,
-    width: usize,
-    x_pos: usize,
-    y_pos: usize,
-    luts: &LUTs,
-) {
-    let (r, g, b) = yuv_to_rgb(yuv, luts);
-
-    let base = (x_pos + y_pos * width) * 4;
-    rgba[base] = r;
-    rgba[base + 1] = g;
-    rgba[base + 2] = b;
-}
-
-/// Convert YUV 4:2:0 data into RGB 1:1:1 data.
+/// Convert planar YUV 4:2:0 data into interleaved RGBA 8888 data.
 ///
 /// This function yields an RGBA picture with the same number of pixels as were
-/// provided in the `y` picture. The `b` and `r` pictures will be resampled at
-/// this stage, and the resulting picture will have color components mixed.
+/// provided in the `y` picture. The `chroma_b` and `chroma_r` samples are
+/// simply reused without any interpolation for all four corresponding pixels.
+/// This is not the most correct, or nicest, but it's what Flash Player does.
+///
+/// Preconditions:
+///  - `y.len()` must be an integer multiple of `y_width`
+///  - `chroma_b.len()` and `chroma_r.len()` must both be integer multiples of `br_width`
+///  - `chroma_b` and `chroma_r` must be the same size
+///  - `br_width` must be half of `y_width`, rounded up
+///  - With `y_height` computed as `y.len() / y_width`, and `br_height` as `chroma_b.len() / br_width`:
+///    `br_height` must be half of `y_height`, rounded up
 pub fn yuv420_to_rgba(
     y: &[u8],
     chroma_b: &[u8],
@@ -204,72 +114,66 @@ pub fn yuv420_to_rgba(
     y_width: usize,
     br_width: usize,
 ) -> Vec<u8> {
+    // Shortcut for the no-op case to avoid all kinds of overflows below
+    if y.is_empty() {
+        debug_assert_eq!(chroma_b.len(), 0);
+        debug_assert_eq!(chroma_r.len(), 0);
+        debug_assert_eq!(y_width, 0);
+        debug_assert_eq!(br_width, 0);
+        return vec![];
+    }
+
+    debug_assert_eq!(y.len() % y_width, 0);
+    debug_assert_eq!(chroma_b.len() % br_width, 0);
+    debug_assert_eq!(chroma_r.len() % br_width, 0);
+    debug_assert_eq!(chroma_b.len(), chroma_r.len());
+
     let y_height = y.len() / y_width;
     let br_height = chroma_b.len() / br_width;
 
-    // prefilling with 255, so the tight loop won't need to write to the alpha channel
-    let mut rgba = vec![255; y.len() * 4];
+    // the + 1 is for rounding odd numbers up
+    debug_assert_eq!((y_width + 1) / 2, br_width);
+    debug_assert_eq!((y_height + 1) / 2, br_height);
+
+    let mut rgba = vec![0; y.len() * 4];
+    let rgba_stride = y_width * 4; // 4 bytes per pixel, interleaved
 
     // making sure that the "is it initialized already?" check is only done once per frame by getting a direct reference
     let luts: &LUTs = &*LUTS;
 
-    // do the bulk of the pixels faster, with no clamping, leaving out the edges
-    for y_pos in 1..y_height - 1 {
-        for x_pos in 1..y_width - 1 {
-            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0);
-            let b_sample =
-                sample_chroma_for_luma(chroma_b, br_width, br_height, x_pos, y_pos, false);
-            let r_sample =
-                sample_chroma_for_luma(chroma_r, br_width, br_height, x_pos, y_pos, false);
+    // Iteration is done in a row-major order to fit the slice layouts.
+    for luma_rowindex in 0..y_height {
+        let chroma_rowindex = luma_rowindex / 2;
 
-            convert_and_write_pixel(
-                (y_sample, b_sample, r_sample),
-                &mut rgba,
-                y_width,
-                x_pos,
-                y_pos,
-                luts,
-            );
+        let y_row = &y[luma_rowindex * y_width..(luma_rowindex + 1) * y_width];
+        let cb_row = &chroma_b[chroma_rowindex * br_width..(chroma_rowindex + 1) * br_width];
+        let cr_row = &chroma_r[chroma_rowindex * br_width..(chroma_rowindex + 1) * br_width];
+        let rgba_row = &mut rgba[luma_rowindex * rgba_stride..(luma_rowindex + 1) * rgba_stride];
+
+        // Iterating on 2 pixels at a time, leaving off the last one if width is odd.
+        let y_iter = y_row.chunks_exact(2);
+        let cb_iter = cb_row.iter();
+        let cr_iter = cr_row.iter();
+        // Similar to how Y is iterated on, but with 4 channels per pixel
+        let rgba_iter = rgba_row.chunks_exact_mut(8);
+
+        for (((y, cb), cr), rgba) in y_iter.zip(cb_iter).zip(cr_iter).zip(rgba_iter) {
+            let rgb0 = yuv_to_rgb((y[0], *cb, *cr), luts);
+            let rgb1 = yuv_to_rgb((y[1], *cb, *cr), luts);
+            // The output alpha values are fixed
+            rgba.copy_from_slice(&[rgb0.0, rgb0.1, rgb0.2, 255, rgb1.0, rgb1.1, rgb1.2, 255]);
         }
-    }
 
-    // doing the sides with clamping
-    for y_pos in 0..y_height {
-        for x_pos in [0, y_width - 1].iter() {
-            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0);
-            let b_sample =
-                sample_chroma_for_luma(chroma_b, br_width, br_height, *x_pos, y_pos, true);
-            let r_sample =
-                sample_chroma_for_luma(chroma_r, br_width, br_height, *x_pos, y_pos, true);
+        // On odd wide pictures, the last pixel is not covered by the iteration above,
+        // but is included in y_row and rgba_row.
+        if y_width % 2 == 1 {
+            let y = y_row.last().unwrap();
+            let cb = cb_row.last().unwrap();
+            let cr = cr_row.last().unwrap();
 
-            convert_and_write_pixel(
-                (y_sample, b_sample, r_sample),
-                &mut rgba,
-                y_width,
-                *x_pos,
-                y_pos,
-                luts,
-            );
-        }
-    }
+            let rgb = yuv_to_rgb((*y, *cb, *cr), luts);
 
-    // doing the top and bottom edges with clamping
-    for y_pos in [0, y_height - 1].iter() {
-        for x_pos in 0..y_width {
-            let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0);
-            let b_sample =
-                sample_chroma_for_luma(chroma_b, br_width, br_height, x_pos, *y_pos, true);
-            let r_sample =
-                sample_chroma_for_luma(chroma_r, br_width, br_height, x_pos, *y_pos, true);
-
-            convert_and_write_pixel(
-                (y_sample, b_sample, r_sample),
-                &mut rgba,
-                y_width,
-                x_pos,
-                *y_pos,
-                luts,
-            );
+            rgba_row[rgba_stride - 4..rgba_stride].copy_from_slice(&[rgb.0, rgb.1, rgb.2, 255])
         }
     }
 
