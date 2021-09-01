@@ -3,7 +3,7 @@
 use lazy_static::lazy_static;
 
 fn clamped_index(width: i32, height: i32, x: i32, y: i32) -> usize {
-    (x.max(0).min(width - 1) + (y.max(0).min(height - 1) * width)) as usize
+    (x.clamp(0, width - 1) + (y.clamp(0, height - 1) * width)) as usize
 }
 
 fn unclamped_index(width: i32, x: i32, y: i32) -> usize {
