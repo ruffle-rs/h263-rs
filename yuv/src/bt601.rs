@@ -147,14 +147,7 @@ lazy_static! {
 }
 
 #[inline]
-fn convert_and_write_pixel(
-    yuv: (u8, u8, u8),
-    rgba: &mut Vec<u8>,
-    width: usize,
-    x_pos: usize,
-    y_pos: usize,
-    luts: &LUTs,
-) {
+fn convert_and_write_pixel(yuv: (u8, u8, u8), rgba: &mut Vec<u8>, base: usize, luts: &LUTs) {
     let (y_sample, b_sample, r_sample) = yuv;
 
     // We rely on the optimizers in rustc/LLVM to eliminate the bounds checks when indexing
@@ -171,7 +164,6 @@ fn convert_and_write_pixel(
     let g = (y + luts.cr_to_g[r_sample as usize] + luts.cb_to_g[b_sample as usize] + 8) >> 4;
     let b = (y + luts.cb_to_b[b_sample as usize] + 8) >> 4;
 
-    let base = (x_pos + y_pos * width) * 4;
     rgba[base] = r.clamp(0, 255) as u8;
     rgba[base + 1] = g.clamp(0, 255) as u8;
     rgba[base + 2] = b.clamp(0, 255) as u8;
@@ -198,7 +190,12 @@ pub fn yuv420_to_rgba(
     // making sure that the "is it initialized already?" check is only done once per frame by getting a direct reference
     let luts: &LUTs = &*LUTS;
 
+    // This is a running index, pointing to the R component of the RGBA pixel to be written next.
+    // It is advanced with additions, instead of recomputed with multiplications when addressing each pixel.
+    let mut base: usize;
+
     // do the bulk of the pixels faster, with no clamping, leaving out the edges
+    base = y_width * 4 + 4; // starting with the pixel on the second row and column (with indices of 1)
     for y_pos in 1..y_height - 1 {
         for x_pos in 1..y_width - 1 {
             let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0);
@@ -207,15 +204,10 @@ pub fn yuv420_to_rgba(
             let r_sample =
                 sample_chroma_for_luma(chroma_r, br_width, br_height, x_pos, y_pos, false);
 
-            convert_and_write_pixel(
-                (y_sample, b_sample, r_sample),
-                &mut rgba,
-                y_width,
-                x_pos,
-                y_pos,
-                luts,
-            );
+            convert_and_write_pixel((y_sample, b_sample, r_sample), &mut rgba, base, luts);
+            base += 4; // advancing by one RGBA pixel
         }
+        base += 8; // skipping the rightmost pixel, and the leftmost pixel in the next row
     }
 
     // doing the sides with clamping
@@ -227,19 +219,16 @@ pub fn yuv420_to_rgba(
             let r_sample =
                 sample_chroma_for_luma(chroma_r, br_width, br_height, *x_pos, y_pos, true);
 
-            convert_and_write_pixel(
-                (y_sample, b_sample, r_sample),
-                &mut rgba,
-                y_width,
-                *x_pos,
-                y_pos,
-                luts,
-            );
+            // just recomputing for every pixel, as there aren't any long continuous runs here
+            base = (x_pos + y_pos * y_width) * 4;
+
+            convert_and_write_pixel((y_sample, b_sample, r_sample), &mut rgba, base, luts);
         }
     }
 
     // doing the top and bottom edges with clamping
     for y_pos in [0, y_height - 1].iter() {
+        base = y_pos * y_width * 4; // resetting to the leftmost pixel of the rows
         for x_pos in 0..y_width {
             let y_sample = y.get(x_pos + y_pos * y_width).copied().unwrap_or(0);
             let b_sample =
@@ -247,14 +236,8 @@ pub fn yuv420_to_rgba(
             let r_sample =
                 sample_chroma_for_luma(chroma_r, br_width, br_height, x_pos, *y_pos, true);
 
-            convert_and_write_pixel(
-                (y_sample, b_sample, r_sample),
-                &mut rgba,
-                y_width,
-                x_pos,
-                *y_pos,
-                luts,
-            );
+            convert_and_write_pixel((y_sample, b_sample, r_sample), &mut rgba, base, luts);
+            base += 4; // advancing by one RGBA pixel
         }
     }
 
