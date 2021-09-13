@@ -336,15 +336,19 @@ pub fn yuv420_to_rgba(
     y_width: usize,
     br_width: usize,
 ) -> Vec<u8> {
+    // Shortcut for the no-op case to avoid all kinds of overflows below
+    if y.is_empty() {
+        debug_assert_eq!(chroma_b.len(), 0);
+        debug_assert_eq!(chroma_r.len(), 0);
+        debug_assert_eq!(y_width, 0);
+        debug_assert_eq!(br_width, 0);
+        return vec![];
+    }
+
     debug_assert_eq!(y.len() % y_width, 0);
     debug_assert_eq!(chroma_b.len() % br_width, 0);
     debug_assert_eq!(chroma_r.len() % br_width, 0);
     debug_assert_eq!(chroma_b.len(), chroma_r.len());
-
-    // Shortcut for the no-op case to avoid all kinds of overflows below
-    if y.is_empty() {
-        return vec![];
-    }
 
     let y_height = y.len() / y_width;
     let br_height = chroma_b.len() / br_width;
@@ -527,4 +531,54 @@ fn test_yuv_to_rgb() {
     // (16 + 235) / 2 = 125.5, for middle grays
     assert_eq!(yuv_to_rgb((125, 128, 128), &LUTS), (127, 127, 127));
     assert_eq!(yuv_to_rgb((126, 128, 128), &LUTS), (128, 128, 128));
+}
+
+#[test]
+fn test_lerp_chroma() {
+    assert_eq!(lerp_chroma(&(0, 0, 0), &(0, 0, 0)), (0, 0, 0));
+    // rounding up when needed
+    assert_eq!(lerp_chroma(&(0, 0, 0), &(255, 255, 255)), (0, 64, 64));
+    // rounding down when needed
+    assert_eq!(lerp_chroma(&(255, 255, 255), &(0, 0, 0)), (255, 191, 191));
+    assert_eq!(
+        lerp_chroma(&(255, 255, 255), &(255, 255, 255)),
+        (255, 255, 255)
+    );
+
+    assert_eq!(
+        lerp_chroma(&(37, 100, 200), &(42, 200, 220)),
+        (37, 125, 205)
+    );
+}
+
+#[test]
+fn test_yuv420_to_rgba() {
+    // empty picture
+    assert_eq!(yuv420_to_rgba(&[], &[], &[], 0, 0), vec![0u8; 0]);
+
+    // a single pixel picture
+    assert_eq!(
+        yuv420_to_rgba(&[125u8], &[128u8], &[128u8], 1, 1),
+        vec![127u8, 127u8, 127u8, 255u8]
+    );
+
+    // a 2x2 grey picture with a single chroma sample (well, one Cb and one Cr)
+    #[rustfmt::skip]
+    assert_eq!(
+        yuv420_to_rgba(&[125u8, 125u8, 125u8, 125u8], &[128u8], &[128u8], 2, 1),
+        vec![
+            127u8, 127u8, 127u8, 255u8, 127u8, 127u8, 127u8, 255u8,
+            127u8, 127u8, 127u8, 255u8, 127u8, 127u8, 127u8, 255u8,
+        ]
+    );
+
+    // a 2x2 black-and-white checkerboard picture
+    #[rustfmt::skip]
+    assert_eq!(
+        yuv420_to_rgba(&[16u8, 235u8, 235u8, 16u8], &[128u8], &[128u8], 2, 1),
+        vec![
+            0u8,     0u8,   0u8, 255u8, 255u8, 255u8, 255u8, 255u8,
+            255u8, 255u8, 255u8, 255u8,   0u8,   0u8,   0u8, 255u8,
+        ]
+    );
 }
