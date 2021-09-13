@@ -437,6 +437,7 @@ bitflags! {
 /// presented to the encoder with a separate logical channel, or it may be
 /// muxed into a video stream that the encoder is also expected to decode.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct BackchannelMessage {
     /// What message type is being back-channeled.
     message_type: BackchannelMessageType,
@@ -496,6 +497,7 @@ pub enum BackchannelReliability {
 ///
 /// The parameters necessary for reference-picture resampling.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct ReferencePictureResampling {
     accuracy: WarpingDisplacementAccuracy,
 
