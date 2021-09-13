@@ -24,30 +24,35 @@ struct LUTs {
 
 impl LUTs {
     pub fn new() -> LUTs {
-        // - Y needs to be remapped linearly from 16..235 to 0..255
-        // - Cr' and Cb' (a.k.a. V and U) need to be remapped linearly from 16..240 to 0..255,
-        //     then shifted to -128..127, and then scaled by the appropriate coefficients
-        // - Finally all values are multiplied by 16 (1<<4) to turn them into 12.4 format, and rounded to integer.
-        fn remap_luma(luma: f32) -> i16 {
-            ((luma - 16.0) * (255.0 / (235.0 - 16.0)) * 16.0).round() as i16
-        }
-        fn remap_chroma(chroma: f32, coeff: f32) -> i16 {
-            (((chroma - 16.0) * (255.0 / (240.0 - 16.0)) - 128.0) * coeff * 16.0).round() as i16
-        }
-
         let mut y_to_gray = [0i16; 256];
         let mut cr_to_r = [0i16; 256];
         let mut cr_to_g = [0i16; 256];
         let mut cb_to_g = [0i16; 256];
         let mut cb_to_b = [0i16; 256];
 
+        // - Y needs to be remapped linearly from 16..235 to 0..255
+        // - Cr' and Cb' (a.k.a. V and U) need to be remapped linearly from 16..240 to 0..255,
+        //     then shifted to -128..127, and then scaled by the appropriate coefficients
+        // - Finally all values are multiplied by 16 (1<<4) to turn them into 12.4 format, and rounded to integer.
+
         for i in 0..256 {
             let f = i as f32;
-            y_to_gray[i] = remap_luma(f);
-            cr_to_r[i] = remap_chroma(f, 1.370705); // sanity check: Cr' contributes "positively" to R
-            cr_to_g[i] = remap_chroma(f, -0.698001); // sanity check: Cr' contributes "negatively" to G
-            cb_to_g[i] = remap_chroma(f, -0.337633); // sanity check: Cb' contributes "negatively" to G
-            cb_to_b[i] = remap_chroma(f, 1.732446); // sanity check: Cb' contributes "positively" to B
+
+            // According to Wikipedia, these are the exact values from the
+            // ITU-R BT.601 standard. See the last group of equations on:
+            // https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.601_conversion
+            let y2gray = (255.0 / 219.0) * (f - 16.0);
+            let cr2r = (255.0 / 224.0) * 1.402 * (f - 128.0);
+            let cr2g = -(255.0 / 224.0) * 1.402 * (0.299 / 0.587) * (f - 128.0);
+            let cb2g = -(255.0 / 224.0) * 1.772 * (0.114 / 0.587) * (f - 128.0);
+            let cb2b = (255.0 / 224.0) * 1.772 * (f - 128.0);
+
+            // Converting to 12.4 format and rounding before storing
+            y_to_gray[i] = (y2gray * 16.0).round() as i16;
+            cr_to_r[i] = (cr2r * 16.0).round() as i16;
+            cr_to_g[i] = (cr2g * 16.0).round() as i16;
+            cb_to_g[i] = (cb2g * 16.0).round() as i16;
+            cb_to_b[i] = (cb2b * 16.0).round() as i16;
         }
 
         LUTs {
@@ -493,4 +498,33 @@ pub fn yuv420_to_rgba(
     }
 
     rgba
+}
+
+#[test]
+fn test_yuv_to_rgb() {
+    // From the H.263 Rec.:
+    // Black = 16
+    // White = 235
+    // Zero colour difference = 128
+    // Peak colour difference = 16 and 240
+
+    // not quite black
+    assert_eq!(yuv_to_rgb((17, 128, 128), &LUTS), (1, 1, 1));
+    // exactly black
+    assert_eq!(yuv_to_rgb((16, 128, 128), &LUTS), (0, 0, 0));
+    // and clamping also works
+    assert_eq!(yuv_to_rgb((15, 128, 128), &LUTS), (0, 0, 0));
+    assert_eq!(yuv_to_rgb((0, 128, 128), &LUTS), (0, 0, 0));
+
+    // not quite white
+    assert_eq!(yuv_to_rgb((234, 128, 128), &LUTS), (254, 254, 254));
+    // exactly white
+    assert_eq!(yuv_to_rgb((235, 128, 128), &LUTS), (255, 255, 255));
+    // and clamping also works
+    assert_eq!(yuv_to_rgb((236, 128, 128), &LUTS), (255, 255, 255));
+    assert_eq!(yuv_to_rgb((255, 128, 128), &LUTS), (255, 255, 255));
+
+    // (16 + 235) / 2 = 125.5, for middle grays
+    assert_eq!(yuv_to_rgb((125, 128, 128), &LUTS), (127, 127, 127));
+    assert_eq!(yuv_to_rgb((126, 128, 128), &LUTS), (128, 128, 128));
 }
