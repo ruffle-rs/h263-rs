@@ -303,3 +303,113 @@ fn test_yuv_to_rgb() {
     assert_eq!(yuv_to_rgb((125, 128, 128), &LUTS), (127, 127, 127));
     assert_eq!(yuv_to_rgb((126, 128, 128), &LUTS), (128, 128, 128));
 }
+
+// Inverse conversion, for testing purposes only
+#[cfg(test)]
+fn rgb_to_yuv(rgb: (u8, u8, u8)) -> (u8, u8, u8) {
+    let (red, green, blue) = rgb;
+    let (red, green, blue) = (red as f32, green as f32, blue as f32);
+
+    // From the same Wikipedia article as LUTs::new()
+    let y = 16.0 + (65.481 * red) / 255.0 + (128.553 * green) / 255.0 + (24.966 * blue) / 255.0;
+    let u = 128.0 - (37.797 * red) / 255.0 - (74.203 * green) / 255.0 + (112.0 * blue) / 255.0;
+    let v = 128.0 + (112.0 * red) / 255.0 - (93.786 * green) / 255.0 - (18.214 * blue) / 255.0;
+
+    (y.round() as u8, u.round() as u8, v.round() as u8)
+}
+
+// The function used for testing should also have its own tests :)
+#[test]
+fn test_rgb_to_yuv() {
+    // black is Y=16
+    assert_eq!(rgb_to_yuv((0, 0, 0)), (16, 128, 128));
+    assert_eq!(rgb_to_yuv((1, 1, 1)), (17, 128, 128));
+
+    // white is Y=235
+    assert_eq!(rgb_to_yuv((254, 254, 254)), (234, 128, 128));
+    assert_eq!(rgb_to_yuv((255, 255, 255)), (235, 128, 128));
+
+    assert_eq!(
+        rgb_to_yuv((255, 0, 0)),
+        (81, 90, 240) // 240 is the full color difference
+    );
+    assert_eq!(rgb_to_yuv((0, 255, 0)), (145, 54, 34));
+    assert_eq!(
+        rgb_to_yuv((0, 0, 255)),
+        (41, 240, 110) // 240 is the full color difference
+    );
+
+    assert_eq!(
+        rgb_to_yuv((0, 255, 255)),
+        (170, 166, 16) // 16 is the full color difference
+    );
+    assert_eq!(rgb_to_yuv((255, 0, 255)), (106, 202, 222));
+    assert_eq!(
+        rgb_to_yuv((255, 255, 0)),
+        (210, 16, 146) // 16 is the full color difference
+    );
+}
+
+#[test]
+fn test_rgb_yuv_rgb_roundtrip_sanity() {
+    assert_eq!(yuv_to_rgb(rgb_to_yuv((0, 0, 0)), &LUTS), (0, 0, 0));
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((127, 127, 127)), &LUTS),
+        (127, 127, 127)
+    );
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((128, 128, 128)), &LUTS),
+        (128, 128, 128)
+    );
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((255, 255, 255)), &LUTS),
+        (255, 255, 255)
+    );
+
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((255, 0, 0)), &LUTS),
+        (254, 0, 0) // !!! there is a rounding error here
+    );
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((0, 255, 0)), &LUTS),
+        (0, 255, 1) // !!! there is a rounding error here
+    );
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((0, 0, 255)), &LUTS),
+        (0, 0, 255) // there is NO rounding error here
+    );
+
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((0, 255, 255)), &LUTS),
+        (1, 255, 255) // !!! there is a rounding error here
+    );
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((255, 0, 255)), &LUTS),
+        (255, 0, 254) // !!! there is a rounding error here
+    );
+    assert_eq!(
+        yuv_to_rgb(rgb_to_yuv((255, 255, 0)), &LUTS),
+        (255, 255, 0) // there is NO rounding error here
+    );
+
+    // the "tab10" palette:
+    for rgb in [
+        (31, 119, 180),
+        (255, 127, 14),
+        (44, 160, 44),
+        (219, 39, 40),
+        (148, 103, 189),
+        (140, 86, 75),
+        (227, 119, 194),
+        (127, 127, 127),
+        (188, 189, 34),
+        (23, 190, 207),
+    ] {
+        let rgb2 = yuv_to_rgb(rgb_to_yuv(rgb), &LUTS);
+        // Allowing for a difference of at most 1 on each component in both directions,
+        // to account for the limited precision in YUV form, and two roundings
+        assert!((rgb.0 as i32 - rgb2.0 as i32).abs() <= 1);
+        assert!((rgb.1 as i32 - rgb2.1 as i32).abs() <= 1);
+        assert!((rgb.2 as i32 - rgb2.2 as i32).abs() <= 1);
+    }
+}
