@@ -318,3 +318,92 @@ fn test_rgb_yuv_rgb_roundtrip_sanity() {
         assert!((rgb.2 as i32 - rgb2.2 as i32).abs() <= 1);
     }
 }
+
+#[test]
+fn test_yuv420_to_rgba() {
+    // empty picture
+    assert_eq!(yuv420_to_rgba(&[], &[], &[], 0, 0), vec![0u8; 0]);
+
+    // a single pixel picture
+    assert_eq!(
+        yuv420_to_rgba(&[125u8], &[128u8], &[128u8], 1, 1),
+        vec![127u8, 127u8, 127u8, 255u8]
+    );
+
+    // a 2x2 grey picture with a single chroma sample (well, one Cb and one Cr)
+    #[rustfmt::skip]
+    assert_eq!(
+        yuv420_to_rgba(&[125u8, 125u8, 125u8, 125u8], &[128u8], &[128u8], 2, 1),
+        vec![
+            127u8, 127u8, 127u8, 255u8, 127u8, 127u8, 127u8, 255u8,
+            127u8, 127u8, 127u8, 255u8, 127u8, 127u8, 127u8, 255u8,
+        ]
+    );
+
+    // a 2x2 black-and-white checkerboard picture
+    #[rustfmt::skip]
+    assert_eq!(
+        yuv420_to_rgba(&[16u8, 235u8, 235u8, 16u8], &[128u8], &[128u8], 2, 1),
+        vec![
+              0u8,   0u8,   0u8, 255u8, 255u8, 255u8, 255u8, 255u8,
+            255u8, 255u8, 255u8, 255u8,   0u8,   0u8,   0u8, 255u8,
+        ]
+    );
+
+    // a 3x2 picture, black on the left, white on the right, grey in the middle
+    #[rustfmt::skip]
+    assert_eq!(
+        yuv420_to_rgba(&[0u8, 125u8, 235u8,  0u8, 125u8, 235u8], &[128u8, 128u8, ], &[128u8, 128u8,], 3, 2),
+        vec![
+              0u8,   0u8,   0u8, 255u8,  127u8, 127u8, 127u8, 255u8,  255u8, 255u8, 255u8, 255u8,
+              0u8,   0u8,   0u8, 255u8,  127u8, 127u8, 127u8, 255u8,  255u8, 255u8, 255u8, 255u8,
+        ]
+    );
+
+    // notes:
+    // (81, 90, 240) is full red in YUV
+    // (145, 54, 34) is full green in YUV
+
+    // A 3x3 picture, red on the top, green on the bottom.
+    #[rustfmt::skip]
+    assert_eq!(
+        yuv420_to_rgba(
+            &[ 81u8,  81u8,  81u8,
+              125u8, 125u8, 125u8,
+              145u8, 145u8, 145u8],
+            &[ 90u8,  90u8,
+               54u8,  54u8],
+            &[240u8,  240u8,
+               34u8,  34u8],
+            3, 2),
+        vec![
+            254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8, // red, with rounding error
+            255u8,  51u8,  50u8, 255u8,  255u8,  51u8,  50u8, 255u8,  255u8,  51u8,  50u8, 255u8, // orangish
+              0u8, 255u8,   1u8, 255u8,    0u8, 255u8,   1u8, 255u8,    0u8, 255u8,   1u8, 255u8, // green, with rounding error
+        ]
+    );
+    // The middle row looks fairly off when converted back to YUV: should be (125, 90, 240), but is (112, 97, 218)
+    // However, when converted back again to RGB, these are (255, 51, 50) and (255, 51, 49), respectively. So, close enough.
+
+    // A 3x3 picture, red on the left, green on the right. Transpose of the above.
+    #[rustfmt::skip]
+    assert_eq!(
+        yuv420_to_rgba(
+            &[ 81u8, 125u8, 145u8,
+               81u8, 125u8, 145u8,
+               81u8, 125u8, 145u8],
+            &[ 90u8,  54u8,
+               90u8,  54u8],
+            &[240u8,   34u8,
+              240u8,   34u8],
+            3, 2),
+        vec![
+            254u8,   0u8,   0u8, 255u8,  255u8,  51u8,  50u8, 255u8,   0u8, 255u8,   1u8, 255u8,
+            254u8,   0u8,   0u8, 255u8,  255u8,  51u8,  50u8, 255u8,   0u8, 255u8,   1u8, 255u8,
+            254u8,   0u8,   0u8, 255u8,  255u8,  51u8,  50u8, 255u8,   0u8, 255u8,   1u8, 255u8,
+        ]
+    );
+
+    // The middle row/column of pixels use the top/left row/column of chroma samples:
+    assert_eq!(yuv_to_rgb((125, 90, 240), &LUTS), (255, 51, 50));
+}
