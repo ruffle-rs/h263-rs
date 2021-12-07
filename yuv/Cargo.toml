@@ -6,4 +6,5 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-lazy_static = "1.4.0"
+wide = "0.7.3"
+bytemuck = "1.7.2"
