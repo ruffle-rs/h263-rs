@@ -51,8 +51,9 @@ const BASIS_TABLE: [[f32; 8]; 8] = [
 /// for the scaling of the DC component, and for the cosine values to be used.
 fn idct_1d(input: &[f32; 8], output: &mut [f32; 8]) {
     *output = [0.0; 8];
-    for freq in 0..8 {
-        for (i, out) in output.iter_mut().enumerate() {
+    for (i, out) in output.iter_mut().enumerate() {
+        // Do your magic, autovectorizer! Thanks...
+        for freq in 0..8 {
             *out += input[freq] * BASIS_TABLE[freq][i];
         }
     }
