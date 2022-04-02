@@ -1,13 +1,12 @@
 <p align="center">
  <a href="https://github.com/ruffle-rs/h263-rs/actions">
   <img src="https://img.shields.io/github/workflow/status/ruffle-rs/h263-rs/Test%20Rust?label=rust%20build" alt="Rust Build Status" />
-  <img src="https://img.shields.io/github/workflow/status/ruffle-rs/h263-rs/Test%20Web?label=web%20build" alt="Web Build Status" />
  </a>
   <a href="https://discord.gg/ruffle">
       <img src="https://img.shields.io/discord/610531541889581066" alt="Ruffle Discord">
   </a>
   <br>
-  <strong><a href="https://ruffle.rs">website</a> | <a href="https://ruffle.rs/demo">demo</a> | <a href="https://github.com/ruffle-rs/h263-rs/releases">nightly builds</a> | <a href="https://github.com/ruffle-rs/h263-rs/wiki">wiki</a></strong>
+  <strong><a href="https://ruffle.rs">website</a> | <a href="https://github.com/ruffle-rs/h263-rs/releases">nightly builds</a> | <a href="https://github.com/ruffle-rs/h263-rs/wiki">wiki</a></strong>
 </p>
 
 # h263-rs
@@ -36,43 +35,7 @@ Currently, this only ships as a library, which must be integrated in another pro
 
 This project is maintained by the developers of Ruffle. You can support the development of Ruffle via [GitHub Sponsors](https://github.com/sponsors/ruffle-rs). Your sponsorship will help to ensure the accessibility of Flash content for the future. Thank you!
 
-Sincere thanks to the diamond level sponsors of Ruffle:
-
-<p align="center">
-  <a href="https://www.newgrounds.com">
-    <img src="https://ruffle.rs/assets/sponsors/newgrounds.png" alt="Newgrounds.com">
-  </a>
-  <a href="https://www.cpmstar.com">
-    <img src="https://ruffle.rs/assets/sponsors/cpmstar.png" alt="CPMStar">
-  </a>
-  <a href="https://deepnight.net">
-    <img src="https://ruffle.rs/assets/sponsors/deepnight.png" alt="Sébastien Bénard">
-  </a>
-  <a href="https://www.crazygames.com">
-    <img src="https://ruffle.rs/assets/sponsors/crazygames.png" alt="Crazy Games">
-  </a>
-  <a href="https://www.coolmathgames.com">
-    <img src="https://ruffle.rs/assets/sponsors/coolmathgames.png" alt="Cool Math Games">
-  </a>
-  <a href="https://www.nytimes.com/">
-    <img src="https://ruffle.rs/assets/sponsors/nyt.png" alt="The New York Times">
-  </a>
-  <a href="https://www.armorgames.com/">
-    <img src="https://ruffle.rs/assets/sponsors/armorgames.png" alt="Armor Games">
-  </a>
-  <a href="https://www.ondaeduca.com/">
-    <img src="https://ruffle.rs/assets/sponsors/ondaeduca.png" alt="Onda Educa">
-  </a>
-  <a href="https://www.twoplayergames.org/">
-    <img src="https://ruffle.rs/assets/sponsors/twoplayergames.png" alt="TwoPlayerGames.org">
-  </a>
-  <a href="https://www.wowgame.jp/">
-    <img src="https://ruffle.rs/assets/sponsors/wowgame.png" alt="wowgame.jp">
-  </a>
-  <a href="http://kupogames.com/">
-    <img src="https://ruffle.rs/assets/sponsors/mattroszak.png" alt="Matt Roszak">
-  </a>
-</p>
+The current list of Ruffle sponsors is maintained on the [main Ruffle repository](https://github.com/ruffle-rs/ruffle)'s `README.md` file.
 
 ## License
 
