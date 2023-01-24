@@ -34,7 +34,7 @@ pub fn predict_candidate(
     let col_index = current_mb % mb_per_line;
     let mv1_pred = match index {
         0 | 2 if col_index == 0 => MotionVector::zero(),
-        0 | 2 => predictor_vectors[current_mb as usize - 1][index + 1],
+        0 | 2 => predictor_vectors[current_mb - 1][index + 1],
         1 | 3 => current_predictors[index - 1],
         _ => unreachable!(),
     };

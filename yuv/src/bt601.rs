@@ -87,7 +87,7 @@ fn yuv_to_rgb(yuv: (u8, u8, u8)) -> (u8, u8, u8) {
     assert!(rgba_4x[14] == rgba_4x[2]);
     assert!(rgba_4x[15] == 255);
 
-    (rgba_4x[0] as u8, rgba_4x[1] as u8, rgba_4x[2] as u8)
+    (rgba_4x[0], rgba_4x[1], rgba_4x[2])
 }
 
 /// Convert planar YUV 4:2:0 data into interleaved RGBA 8888 data.
