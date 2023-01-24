@@ -63,7 +63,7 @@ where
         let bits_available = (self.buffer.len() * 8).saturating_sub(self.bits_read);
         let bits_short = (bits_needed as usize).saturating_sub(bits_available);
 
-        (bits_short / 8) + if bits_short % 8 != 0 { 1 } else { 0 }
+        (bits_short / 8) + usize::from(bits_short % 8 != 0)
     }
 
     /// Ensure that at least a certain number of additional bits can be read

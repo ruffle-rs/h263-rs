@@ -1,7 +1,6 @@
 //! Block run decompression
 
 use crate::types::Block;
-use std::cmp::{max, min};
 
 const DEZIGZAG_MAPPING: [(u8, u8); 64] = [
     (0, 0),
@@ -106,11 +105,10 @@ pub fn inverse_rle(
         let dequantized_level = quant as i16 * ((2 * tcoef.level.abs()) + 1);
         let parity = if quant % 2 == 1 { 0 } else { -1 };
 
-        block[zig_x as usize][zig_y as usize] = min(
-            2047,
-            max(-2048, tcoef.level.signum() * (dequantized_level + parity)),
-        )
-        .into();
+        block[zig_x as usize][zig_y as usize] = (tcoef.level.signum()
+            * (dequantized_level + parity))
+            .clamp(-2048, 2047)
+            .into();
         zigzag_index += 1;
     }
 }

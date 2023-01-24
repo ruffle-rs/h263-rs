@@ -912,7 +912,7 @@ impl IntraDc {
     /// This function yields `None` for out-of-range or otherwise
     /// unrepresentable level constants.
     pub fn from_level(value: u16) -> Option<Self> {
-        if (value & 0x07) != 0 || value > 2032 || value < 8 {
+        if (value & 0x07) != 0 || !(8..=2032).contains(&value) {
             return None;
         }
 

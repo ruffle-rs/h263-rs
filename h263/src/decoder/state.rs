@@ -9,7 +9,6 @@ use crate::types::{
     GroupOfBlocks, Macroblock, MacroblockType, MotionVector, Picture, PictureOption,
     PictureTypeCode, MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
 };
-use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::io::Read;
 
@@ -224,7 +223,7 @@ impl H263State {
                         motion_vectors_b: _motion_vectors_b,
                     }) => {
                         let quantizer = in_force_quantizer as i8 + d_quantizer.unwrap_or(0);
-                        in_force_quantizer = max(1, min(31, quantizer)) as u8;
+                        in_force_quantizer = quantizer.clamp(1, 31) as u8;
 
                         if mb_type.is_inter() {
                             let mv1 = motion_vector.unwrap_or_else(MotionVector::zero);

@@ -1,7 +1,5 @@
 //! Inverse discrete cosine transform
 
-use std::cmp::{max, min};
-
 /*
 use lazy_static::lazy_static;
 use std::f32::consts::{FRAC_1_SQRT_2, PI};
@@ -123,12 +121,11 @@ pub fn idct_channel(
                         continue;
                     }
 
-                    let clipped_idct =
-                        min(255, max(-256, (idct / 4.0 + idct.signum() * 0.5) as i16));
+                    let clipped_idct = ((idct / 4.0 + idct.signum() * 0.5) as i16).clamp(-256, 255);
                     let mocomp_pixel = output[x + (y * output_samples_per_line)] as u16 as i16;
 
                     output[x + (y * output_samples_per_line)] =
-                        min(255, max(0, clipped_idct + mocomp_pixel)) as u8;
+                        (clipped_idct + mocomp_pixel).clamp(0, 255) as u8;
                 }
             }
         }
