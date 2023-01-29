@@ -53,8 +53,8 @@ fn gather_block(
 ) {
     let ((x_delta, x_interp), (y_delta, y_interp)) = mv.into_lerp_parameters();
 
-    let x = pos.0 as isize + x_delta as isize;
-    let y = pos.1 as isize + y_delta as isize;
+    let src_x = pos.0 as isize + x_delta as isize;
+    let src_y = pos.1 as isize + y_delta as isize;
     let array_height = pixel_array.len() / samples_per_row;
 
     let block_cols = (samples_per_row as isize - pos.0 as isize).clamp(0, 8);
@@ -65,14 +65,14 @@ fn gather_block(
 
         if block_cols == 8
             && block_rows == 8
-            && (0..=samples_per_row as isize - 8).contains(&x)
-            && (0..=array_height as isize - 8).contains(&y)
+            && (0..=samples_per_row as isize - 8).contains(&src_x)
+            && (0..=array_height as isize - 8).contains(&src_y)
         {
             // Fast path: Both the destination and source are full 8x8 blocks entirely within the frame,
             // so no need for coordinate clamping, and we can copy pixels in (horizontal) groups of 8.
 
             for j in 0..8 {
-                let src_offset = x as usize + ((y + j as isize) as usize * samples_per_row);
+                let src_offset = src_x as usize + ((src_y + j as isize) as usize * samples_per_row);
                 let dest_offset = pos.0 + (pos.1 + j) * samples_per_row;
                 target[dest_offset..dest_offset + 8]
                     .copy_from_slice(&pixel_array[src_offset..src_offset + 8]);
@@ -80,8 +80,8 @@ fn gather_block(
         } else {
             // Generic path: Copy pixels one at a time, with coordinate clamping.
 
-            for (j, v) in (y..y + block_rows).enumerate() {
-                for (i, u) in (x..x + block_cols).enumerate() {
+            for (j, v) in (src_y..src_y + block_rows).enumerate() {
+                for (i, u) in (src_x..src_x + block_cols).enumerate() {
                     target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
                         read_sample(pixel_array, samples_per_row, array_height, (u, v));
                 }
@@ -90,8 +90,8 @@ fn gather_block(
     } else {
         // Generic path: Interpolate in at least one direction.
 
-        for (j, v) in (y..y + block_rows).enumerate() {
-            for (i, u) in (x..x + block_cols).enumerate() {
+        for (j, v) in (src_y..src_y + block_rows).enumerate() {
+            for (i, u) in (src_x..src_x + block_cols).enumerate() {
                 let sample_0_0 = read_sample(pixel_array, samples_per_row, array_height, (u, v));
                 let sample_1_0 =
                     read_sample(pixel_array, samples_per_row, array_height, (u + 1, v));
