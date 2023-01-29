@@ -27,7 +27,7 @@ fn read_sample(
     pixel_array
         .get(x + (y * samples_per_row))
         .copied()
-        .unwrap_or(0)
+        .expect("pixel array index out of bounds")
 }
 
 /// Linear interpolation between two values by 0 or 50%.
@@ -61,13 +61,35 @@ fn gather_block(
     let block_rows = (array_height as isize - pos.1 as isize).clamp(0, 8);
 
     if !x_interp && !y_interp {
-        for (j, v) in (y..y + block_rows).enumerate() {
-            for (i, u) in (x..x + block_cols).enumerate() {
-                target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
-                    read_sample(pixel_array, samples_per_row, array_height, (u, v));
+        // Fast path: No interpolation needed in either direction.
+
+        if block_cols == 8
+            && block_rows == 8
+            && (0..=samples_per_row as isize - 8).contains(&x)
+            && (0..=array_height as isize - 8).contains(&y)
+        {
+            // Fast path: Both the destination and source are full 8x8 blocks entirely within the frame,
+            // so no need for coordinate clamping, and we can copy pixels in (horizontal) groups of 8.
+
+            for j in 0..8 {
+                let src_offset = x as usize + ((y + j as isize) as usize * samples_per_row);
+                let dest_offset = pos.0 + (pos.1 + j) * samples_per_row;
+                target[dest_offset..dest_offset + 8]
+                    .copy_from_slice(&pixel_array[src_offset..src_offset + 8]);
+            }
+        } else {
+            // Generic path: Copy pixels one at a time, with coordinate clamping.
+
+            for (j, v) in (y..y + block_rows).enumerate() {
+                for (i, u) in (x..x + block_cols).enumerate() {
+                    target[pos.0 + i + ((pos.1 + j) * samples_per_row)] =
+                        read_sample(pixel_array, samples_per_row, array_height, (u, v));
+                }
             }
         }
     } else {
+        // Generic path: Interpolate in at least one direction.
+
         for (j, v) in (y..y + block_rows).enumerate() {
             for (i, u) in (x..x + block_cols).enumerate() {
                 let sample_0_0 = read_sample(pixel_array, samples_per_row, array_height, (u, v));
@@ -79,7 +101,7 @@ fn gather_block(
                     read_sample(pixel_array, samples_per_row, array_height, (u + 1, v + 1));
 
                 if x_interp && y_interp {
-                    // special case to only round once
+                    // Special case: Only round once at the end when interpolating in both directions.
 
                     let sample = ((sample_0_0 as u16
                         + sample_1_0 as u16
@@ -90,6 +112,8 @@ fn gather_block(
 
                     target[pos.0 + i + ((pos.1 + j) * samples_per_row)] = sample;
                 } else {
+                    // Interpolating in exactly one of the directions.
+
                     let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
                     let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
 
