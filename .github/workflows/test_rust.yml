@@ -8,18 +8,14 @@ on:
 
 jobs:
   build:
-    name: Test Rust ${{ matrix.rust_version }} / ${{ matrix.os.name }}
-    runs-on: ${{ matrix.os.name }}
+    name: Test Rust ${{ matrix.rust_version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.rust_version == 'nightly' }}
     strategy:
       fail-fast: false
       matrix:
         rust_version: ["stable", "beta", "nightly"]
-        os: [
-          {name: ubuntu-latest, img_tests: true },
-          {name: windows-latest, img_tests: true },
-          {name: macOS-latest, img_tests: false }
-        ]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
 
     steps:
       - uses: actions/checkout@v2
@@ -31,14 +27,6 @@ jobs:
           toolchain: ${{ matrix.rust_version }}
           override: true
           components: rustfmt, clippy
-
-      - name: Install Linux dependencies
-        if: matrix.os.name == 'ubuntu-latest'
-        run: |
-          sudo add-apt-repository ppa:kisak/kisak-mesa -y
-          sudo apt-get update
-          sudo apt-get dist-upgrade
-          sudo apt install -y libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev mesa-vulkan-drivers
 
       - name: Check formatting
         uses: actions-rs/cargo@v1
@@ -53,7 +41,6 @@ jobs:
           args: --all --tests -- -D warnings
 
       - name: Run tests
-        if: ${{ !matrix.os.img_tests }}
         uses: actions-rs/cargo@v1
         with:
           command: test
