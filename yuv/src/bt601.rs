@@ -99,27 +99,20 @@ fn yuv_to_rgb(yuv: (u8, u8, u8)) -> (u8, u8, u8) {
 ///
 /// Preconditions:
 ///  - `y.len()` must be an integer multiple of `y_width`
-///  - `chroma_b.len()` and `chroma_r.len()` must both be integer multiples of `br_width`
 ///  - `chroma_b` and `chroma_r` must be the same size
-///  - `br_width` must be half of `y_width`, rounded up
-///  - With `y_height` computed as `y.len() / y_width`, and `br_height` as `chroma_b.len() / br_width`:
-///    `br_height` must be half of `y_height`, rounded up
-///
-pub fn yuv420_to_rgba(
-    y: &[u8],
-    chroma_b: &[u8],
-    chroma_r: &[u8],
-    y_width: usize,
-    br_width: usize,
-) -> Vec<u8> {
+///  - With `y_height` computed as `y.len() / y_width`, `br_width` as half of `y_width` (rounded up),
+///    and `br_height` as `chroma_b.len() / br_width`: `br_height` must be half of `y_height`, rounded up
+pub fn yuv420_to_rgba(y: &[u8], chroma_b: &[u8], chroma_r: &[u8], y_width: usize) -> Vec<u8> {
     // Shortcut for the no-op case to avoid all kinds of overflows below
     if y.is_empty() {
         debug_assert_eq!(chroma_b.len(), 0);
         debug_assert_eq!(chroma_r.len(), 0);
         debug_assert_eq!(y_width, 0);
-        debug_assert_eq!(br_width, 0);
         return vec![];
     }
+
+    // the + 1 is for rounding odd numbers up
+    let br_width = (y_width + 1) / 2;
 
     debug_assert_eq!(y.len() % y_width, 0);
     debug_assert_eq!(chroma_b.len() % br_width, 0);
@@ -130,7 +123,6 @@ pub fn yuv420_to_rgba(
     let br_height = chroma_b.len() / br_width;
 
     // the + 1 is for rounding odd numbers up
-    debug_assert_eq!((y_width + 1) / 2, br_width);
     debug_assert_eq!((y_height + 1) / 2, br_height);
 
     let mut rgba = vec![0; y.len() * 4];
@@ -336,18 +328,18 @@ fn test_rgb_yuv_rgb_roundtrip_sanity() {
 #[test]
 fn test_yuv420_to_rgba_tiny() {
     // empty picture
-    assert_eq!(yuv420_to_rgba(&[], &[], &[], 0, 0), vec![0u8; 0]);
+    assert_eq!(yuv420_to_rgba(&[], &[], &[], 0), vec![0u8; 0]);
 
     // a single pixel picture
     assert_eq!(
-        yuv420_to_rgba(&[125u8], &[128u8], &[128u8], 1, 1),
+        yuv420_to_rgba(&[125u8], &[128u8], &[128u8], 1),
         vec![127u8, 127u8, 127u8, 255u8]
     );
 
     // a 2x2 grey picture with a single chroma sample (well, one Cb and one Cr)
     #[rustfmt::skip]
     assert_eq!(
-        yuv420_to_rgba(&[125u8, 125u8, 125u8, 125u8], &[128u8], &[128u8], 2, 1),
+        yuv420_to_rgba(&[125u8, 125u8, 125u8, 125u8], &[128u8], &[128u8], 2),
         vec![
             127u8, 127u8, 127u8, 255u8, 127u8, 127u8, 127u8, 255u8,
             127u8, 127u8, 127u8, 255u8, 127u8, 127u8, 127u8, 255u8,
@@ -357,7 +349,7 @@ fn test_yuv420_to_rgba_tiny() {
     // a 2x2 black-and-white checkerboard picture
     #[rustfmt::skip]
     assert_eq!(
-        yuv420_to_rgba(&[16u8, 235u8, 235u8, 16u8], &[128u8], &[128u8], 2, 1),
+        yuv420_to_rgba(&[16u8, 235u8, 235u8, 16u8], &[128u8], &[128u8], 2),
         vec![
               0u8,   0u8,   0u8, 255u8, 255u8, 255u8, 255u8, 255u8,
             255u8, 255u8, 255u8, 255u8,   0u8,   0u8,   0u8, 255u8,
@@ -367,7 +359,7 @@ fn test_yuv420_to_rgba_tiny() {
     // a 3x2 picture, black on the left, white on the right, grey in the middle
     #[rustfmt::skip]
     assert_eq!(
-        yuv420_to_rgba(&[0u8, 125u8, 235u8,  0u8, 125u8, 235u8], &[128u8, 128u8, ], &[128u8, 128u8,], 3, 2),
+        yuv420_to_rgba(&[0u8, 125u8, 235u8,  0u8, 125u8, 235u8], &[128u8, 128u8, ], &[128u8, 128u8,], 3),
         vec![
               0u8,   0u8,   0u8, 255u8,  127u8, 127u8, 127u8, 255u8,  255u8, 255u8, 255u8, 255u8,
               0u8,   0u8,   0u8, 255u8,  127u8, 127u8, 127u8, 255u8,  255u8, 255u8, 255u8, 255u8,
@@ -389,7 +381,7 @@ fn test_yuv420_to_rgba_tiny() {
                54u8,  54u8],
             &[240u8,  240u8,
                34u8,  34u8],
-            3, 2),
+            3),
         vec![
             254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8, // red, with rounding error
             255u8,  51u8,  50u8, 255u8,  255u8,  51u8,  50u8, 255u8,  255u8,  51u8,  50u8, 255u8, // orangish
@@ -410,7 +402,7 @@ fn test_yuv420_to_rgba_tiny() {
                90u8,  54u8],
             &[240u8,   34u8,
               240u8,   34u8],
-            3, 2),
+            3),
         vec![
             254u8,   0u8,   0u8, 255u8,  255u8,  51u8,  50u8, 255u8,   0u8, 255u8,   1u8, 255u8,
             254u8,   0u8,   0u8, 255u8,  255u8,  51u8,  50u8, 255u8,   0u8, 255u8,   1u8, 255u8,
@@ -437,7 +429,7 @@ fn test_yuv420_to_rgba_medium() {
                54u8,  54u8],
             &[240u8,  240u8,
                34u8,  34u8],
-            4, 2),
+            4),
         vec![
             254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8, 254u8,   0u8,   0u8, 255u8, // red, with rounding error
             254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8, 254u8,   0u8,   0u8, 255u8, // red, with rounding error
@@ -459,7 +451,7 @@ fn test_yuv420_to_rgba_medium() {
                54u8,  54u8,  54u8],
             &[240u8,  240u8, 240u8,
                34u8,  34u8,  34u8],
-            5, 3),
+            5),
         vec![
             254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8, 254u8,   0u8,   0u8, 255u8, 254u8,   0u8,   0u8, 255u8,
             254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8, 254u8,   0u8,   0u8, 255u8, 254u8,   0u8,   0u8, 255u8,
@@ -480,7 +472,7 @@ fn test_yuv420_to_rgba_medium() {
                54u8,  54u8,  90u8],
             &[240u8, 240u8,  34u8,
                34u8,  34u8, 240u8],
-            5, 3),
+            5),
         vec![
             254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8, 254u8,   0u8,   0u8, 255u8,   0u8, 255u8,   1u8, 255u8, // red, with rounding error
             254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8,  254u8,   0u8,   0u8, 255u8, 254u8,   0u8,   0u8, 255u8,   0u8, 255u8,   1u8, 255u8, // red, with rounding error
