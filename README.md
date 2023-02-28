@@ -1,8 +1,7 @@
 <p align="center">
- <a href="https://github.com/ruffle-rs/h263-rs/actions">
-  <img src="https://img.shields.io/github/workflow/status/ruffle-rs/h263-rs/Test%20Rust?label=rust%20build" alt="Rust Build Status" />
-  <img src="https://img.shields.io/github/workflow/status/ruffle-rs/h263-rs/Test%20Web?label=web%20build" alt="Web Build Status" />
- </a>
+  <a href="https://github.com/ruffle-rs/h263-rs/actions">
+      <img alt="Rust Build Status" src="https://img.shields.io/github/actions/workflow/status/ruffle-rs/h263-rs/test_rust.yml?label=Rust%20Build&logo=github&branch=master" />
+  </a>
   <a href="https://discord.gg/ruffle">
       <img src="https://img.shields.io/discord/610531541889581066" alt="Ruffle Discord">
   </a>
