@@ -6,8 +6,8 @@ use crate::decoder::types::DecoderOption;
 use crate::error::{Error, Result};
 use crate::parser::{decode_block, decode_gob, decode_macroblock, decode_picture, H263Reader};
 use crate::types::{
-    GroupOfBlocks, Macroblock, MacroblockType, MotionVector, Picture, PictureOption,
-    PictureTypeCode, MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
+    DecodedDctBlock, GroupOfBlocks, Macroblock, MacroblockType, MotionVector, Picture,
+    PictureOption, PictureTypeCode, MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
 };
 use std::collections::HashMap;
 use std::io::Read;
@@ -183,11 +183,12 @@ impl H263State {
             let mut next_decoded_picture =
                 DecodedPicture::new(next_picture, format).ok_or(Error::PictureFormatInvalid)?;
 
-            let mut luma_levels = vec![[[0.0; 8]; 8]; level_dimensions.0 * level_dimensions.1 / 64];
+            let mut luma_levels =
+                vec![DecodedDctBlock::Zero; level_dimensions.0 * level_dimensions.1 / 64];
             let mut chroma_b_levels =
-                vec![[[0.0; 8]; 8]; level_dimensions.0 * level_dimensions.1 / 4 / 64];
+                vec![DecodedDctBlock::Zero; level_dimensions.0 * level_dimensions.1 / 4 / 64];
             let mut chroma_r_levels =
-                vec![[[0.0; 8]; 8]; level_dimensions.0 * level_dimensions.1 / 4 / 64];
+                vec![DecodedDctBlock::Zero; level_dimensions.0 * level_dimensions.1 / 4 / 64];
 
             loop {
                 let mb = decode_macroblock(

@@ -887,6 +887,20 @@ pub struct Block {
     pub tcoef: Vec<TCoefficient>,
 }
 
+/// This type has nothing to do with H.263 itself, it's just to keep some trivial
+/// (or at least simpler) special cases of the IDCT inputs separate as an optimization.
+/// It's easier and faster to do it here instead of trying to detect them later.
+///
+/// NOTE: The `f32` values could later be changed to `i16` to save some memory.
+#[allow(clippy::large_enum_variant)] // The small variants are only used as markers.
+#[derive(Clone, Copy, Debug)]
+pub enum DecodedDctBlock {
+    /// The block is all zeros, it contributes nothing.
+    Zero,
+    /// The general case, a full 2D IDCT needs to be performed.
+    Full([[f32; 8]; 8]),
+}
+
 /// ITU-T Recommendation H.263 (01/2005) 5.4.1 `INTRADC`
 ///
 /// The DC coefficient for intra blocks is coded in a somewhat weird way; this

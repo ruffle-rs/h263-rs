@@ -1,7 +1,8 @@
 //! Block run decompression
 
-use crate::types::Block;
+use crate::{types::Block, types::DecodedDctBlock};
 
+// These are (x, y) coords, not (row, col).
 const DEZIGZAG_MAPPING: [(u8, u8); 64] = [
     (0, 0),
     (1, 0),
@@ -80,35 +81,56 @@ const DEZIGZAG_MAPPING: [(u8, u8); 64] = [
 /// levels array is reused, you must reinitialize it again.
 pub fn inverse_rle(
     encoded_block: &Block,
-    levels: &mut [[[f32; 8]; 8]],
+    levels: &mut [DecodedDctBlock],
     pos: (usize, usize),
     blk_per_line: usize,
     quant: u8,
 ) {
-    let mut zigzag_index = 0;
     let block_id = pos.0 / 8 + (pos.1 / 8 * blk_per_line);
     let block = &mut levels[block_id];
 
-    if let Some(dc) = encoded_block.intradc {
-        block[0][0] = dc.into_level().into();
-        zigzag_index += 1;
-    }
+    // Taking care of some special cases of outputs (IDCT inputs) first,
+    // where at most the DC coefficient is present.
+    if encoded_block.tcoef.is_empty() {
+        match encoded_block.intradc {
+            Some(dc) => {
+                // The block is DC only.
+                let dc_level = dc.into_level();
 
-    for tcoef in encoded_block.tcoef.iter() {
-        zigzag_index += tcoef.run as usize;
+                if dc_level == 0 {
+                    // This isn't really supposed to happen, but just in case...
+                    // (If the DC coefficient is zero, it shouldn't have been coded.)
+                    *block = DecodedDctBlock::Zero
+                }
+            }
+            None => *block = DecodedDctBlock::Zero, // The block is empty.
+        }
+    } else {
+        // The slightly less special cases: `Horiz`, `Vert`, and `Full`.
+        let mut block_data = [[0.0f32; 8]; 8];
 
-        if zigzag_index >= DEZIGZAG_MAPPING.len() {
-            return;
+        let mut zigzag_index = 0;
+        if let Some(dc) = encoded_block.intradc {
+            block_data[0][0] = dc.into_level().into();
+            zigzag_index += 1;
+        }
+        for tcoef in encoded_block.tcoef.iter() {
+            zigzag_index += tcoef.run as usize;
+
+            if zigzag_index >= DEZIGZAG_MAPPING.len() {
+                return;
+            }
+
+            let (zig_x, zig_y) = DEZIGZAG_MAPPING[zigzag_index];
+            let dequantized_level = quant as i16 * ((2 * tcoef.level.abs()) + 1);
+            let parity = if quant % 2 == 1 { 0 } else { -1 };
+
+            let value = (tcoef.level.signum() * (dequantized_level + parity)).clamp(-2048, 2047);
+            let val = value.into();
+            block_data[zig_y as usize][zig_x as usize] = val;
+            zigzag_index += 1;
         }
 
-        let (zig_x, zig_y) = DEZIGZAG_MAPPING[zigzag_index];
-        let dequantized_level = quant as i16 * ((2 * tcoef.level.abs()) + 1);
-        let parity = if quant % 2 == 1 { 0 } else { -1 };
-
-        block[zig_x as usize][zig_y as usize] = (tcoef.level.signum()
-            * (dequantized_level + parity))
-            .clamp(-2048, 2047)
-            .into();
-        zigzag_index += 1;
+        *block = DecodedDctBlock::Full(block_data);
     }
 }
