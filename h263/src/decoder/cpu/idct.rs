@@ -31,6 +31,8 @@ lazy_static! {
 }
 */
 
+use crate::types::DecodedDctBlock;
+
 // This is the precomputed version of the table above
 #[rustfmt::skip]
 #[allow(clippy::approx_constant)]
@@ -49,6 +51,11 @@ const BASIS_TABLE: [[f32; 8]; 8] = [
 /// for the scaling of the DC component, and for the cosine values to be used.
 fn idct_1d(input: &[f32; 8], output: &mut [f32; 8]) {
     *output = [0.0; 8];
+    // Note that we could immediately return here if `*input == *output`
+    // (if input is all zeroes, return all zeroes), but it didn't seem to
+    // improve performance in practice - most likely because the majority
+    // of the cases where this would occur is already covered by the
+    // special `DecodedDctBlock` cases.
     for (i, out) in output.iter_mut().enumerate() {
         // Do your magic, autovectorizer! Thanks...
         for freq in 0..8 {
@@ -73,7 +80,7 @@ fn idct_1d(input: &[f32; 8], output: &mut [f32; 8]) {
 /// step can happen simultaneously. Otherwise, you should provide an array of
 /// zeroes.
 pub fn idct_channel(
-    block_levels: &[[[f32; 8]; 8]],
+    block_levels: &[DecodedDctBlock],
     output: &mut [u8],
     blk_per_line: usize,
     output_samples_per_line: usize,
@@ -93,39 +100,40 @@ pub fn idct_channel(
                 continue;
             }
 
-            let block = &block_levels[block_id];
+            let xs = 8.min(output_samples_per_line - x_base * 8);
+            let ys = 8.min(output_height - y_base * 8);
 
-            for row in 0..8 {
-                idct_1d(&block[row], &mut idct_output[row]);
-                for (i, interim_row) in idct_intermediate.iter_mut().enumerate() {
-                    interim_row[row] = idct_output[row][i]; // there is a transposition here
+            match &block_levels[block_id] {
+                DecodedDctBlock::Zero => {
+                    // Nothing to do here, this block contributes nothing to the output.
                 }
-            }
-
-            for row in 0..8 {
-                idct_1d(&idct_intermediate[row], &mut idct_output[row]);
-            }
-
-            // The inverted notation of the `x` and `y` loops is intended to
-            // reverse the above transposition
-            for (y_offset, idct_row) in idct_output.iter().enumerate() {
-                for (x_offset, idct) in idct_row.iter().enumerate() {
-                    let x = x_base * 8 + x_offset;
-                    let y = y_base * 8 + y_offset;
-
-                    if x >= output_samples_per_line {
-                        continue;
+                DecodedDctBlock::Full(block_data) => {
+                    for row in 0..8 {
+                        idct_1d(&block_data[row], &mut idct_output[row]);
+                        for (i, interim_row) in idct_intermediate.iter_mut().enumerate() {
+                            // There is a transposition here!
+                            interim_row[row] = idct_output[row][i];
+                        }
                     }
 
-                    if y >= output_height {
-                        continue;
+                    for row in 0..8 {
+                        idct_1d(&idct_intermediate[row], &mut idct_output[row]);
                     }
 
-                    let clipped_idct = ((idct / 4.0 + idct.signum() * 0.5) as i16).clamp(-256, 255);
-                    let mocomp_pixel = output[x + (y * output_samples_per_line)] as u16 as i16;
+                    // The swapped use of `x_offset` and `y_offset` loops is to undo the above transposition.
+                    for (x_offset, idct_row) in idct_output.iter().take(xs).enumerate() {
+                        for (y_offset, idct) in idct_row.iter().take(ys).enumerate() {
+                            let x = x_base * 8 + x_offset;
+                            let y = y_base * 8 + y_offset;
 
-                    output[x + (y * output_samples_per_line)] =
-                        (clipped_idct + mocomp_pixel).clamp(0, 255) as u8;
+                            let clipped_idct =
+                                ((idct / 4.0 + idct.signum() * 0.5) as i16).clamp(-256, 255);
+                            let mocomp_pixel = output[x + (y * output_samples_per_line)] as i16;
+
+                            output[x + (y * output_samples_per_line)] =
+                                (clipped_idct + mocomp_pixel).clamp(0, 255) as u8;
+                        }
+                    }
                 }
             }
         }
