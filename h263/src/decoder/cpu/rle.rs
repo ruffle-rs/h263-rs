@@ -111,6 +111,9 @@ pub fn inverse_rle(
         // The slightly less special cases: `Horiz`, `Vert`, and `Full`.
         let mut block_data = [[0.0f32; 8]; 8];
 
+        let mut is_horiz = true;
+        let mut is_vert = true;
+
         let mut zigzag_index = 0;
         if let Some(dc) = encoded_block.intradc {
             block_data[0][0] = dc.into_level().into();
@@ -131,8 +134,39 @@ pub fn inverse_rle(
             let val = value.into();
             block_data[zig_y as usize][zig_x as usize] = val;
             zigzag_index += 1;
+
+            if val != 0.0 {
+                if zig_y > 0 {
+                    is_horiz = false;
+                }
+                if zig_x > 0 {
+                    is_vert = false;
+                }
+            }
         }
 
-        DecodedDctBlock::Full(block_data)
+        match (is_horiz, is_vert) {
+            (true, true) => {
+                // This shouldn't really happen, but just in case...
+                // (If the block is DC, it shouldn't have had TCOEF runs.)
+                if block_data[0][0] == 0.0 {
+                    DecodedDctBlock::Zero
+                } else {
+                    DecodedDctBlock::Dc(block_data[0][0])
+                }
+            }
+            (true, false) => DecodedDctBlock::Horiz(block_data[0]),
+            (false, true) => DecodedDctBlock::Vert([
+                block_data[0][0],
+                block_data[1][0],
+                block_data[2][0],
+                block_data[3][0],
+                block_data[4][0],
+                block_data[5][0],
+                block_data[6][0],
+                block_data[7][0],
+            ]),
+            (false, false) => DecodedDctBlock::Full(block_data),
+        }
     }
 }

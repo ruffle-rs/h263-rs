@@ -128,6 +128,42 @@ pub fn idct_channel(
                         }
                     }
                 }
+                DecodedDctBlock::Horiz(first_row) => {
+                    idct_1d(first_row, &mut idct_intermediate[0]);
+
+                    for y_offset in 0..ys {
+                        for (x_offset, idct) in idct_intermediate[0].iter().take(xs).enumerate() {
+                            let x = x_base * 8 + x_offset;
+                            let y = y_base * 8 + y_offset;
+
+                            let clipped_idct =
+                                ((idct * BASIS_TABLE[0][0] / 4.0 + idct.signum() * 0.5) as i16)
+                                    .clamp(-256, 255);
+                            let mocomp_pixel = output[x + (y * output_samples_per_line)] as i16;
+
+                            output[x + (y * output_samples_per_line)] =
+                                (clipped_idct + mocomp_pixel).clamp(0, 255) as u8;
+                        }
+                    }
+                }
+                DecodedDctBlock::Vert(first_col) => {
+                    idct_1d(first_col, &mut idct_intermediate[0]);
+
+                    for (y_offset, idct) in idct_intermediate[0].iter().take(ys).enumerate() {
+                        for x_offset in 0..xs {
+                            let x = x_base * 8 + x_offset;
+                            let y = y_base * 8 + y_offset;
+
+                            let clipped_idct =
+                                ((idct * BASIS_TABLE[0][0] / 4.0 + idct.signum() * 0.5) as i16)
+                                    .clamp(-256, 255);
+                            let mocomp_pixel = output[x + (y * output_samples_per_line)] as i16;
+
+                            output[x + (y * output_samples_per_line)] =
+                                (clipped_idct + mocomp_pixel).clamp(0, 255) as u8;
+                        }
+                    }
+                }
                 DecodedDctBlock::Full(block_data) => {
                     for row in 0..8 {
                         idct_1d(&block_data[row], &mut idct_output[row]);
