@@ -91,7 +91,7 @@ pub fn inverse_rle(
 
     // Taking care of some special cases of outputs (IDCT inputs) first,
     // where at most the DC coefficient is present.
-    if encoded_block.tcoef.is_empty() {
+    *block = if encoded_block.tcoef.is_empty() {
         match encoded_block.intradc {
             Some(dc) => {
                 // The block is DC only.
@@ -100,10 +100,12 @@ pub fn inverse_rle(
                 if dc_level == 0 {
                     // This isn't really supposed to happen, but just in case...
                     // (If the DC coefficient is zero, it shouldn't have been coded.)
-                    *block = DecodedDctBlock::Zero
+                    DecodedDctBlock::Zero
+                } else {
+                    DecodedDctBlock::Dc(dc_level.into())
                 }
             }
-            None => *block = DecodedDctBlock::Zero, // The block is empty.
+            None => DecodedDctBlock::Zero, // The block is empty.
         }
     } else {
         // The slightly less special cases: `Horiz`, `Vert`, and `Full`.
@@ -131,6 +133,6 @@ pub fn inverse_rle(
             zigzag_index += 1;
         }
 
-        *block = DecodedDctBlock::Full(block_data);
+        DecodedDctBlock::Full(block_data)
     }
 }
