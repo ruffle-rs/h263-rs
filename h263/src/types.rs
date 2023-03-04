@@ -900,6 +900,12 @@ pub enum DecodedDctBlock {
     /// The block only has a single non-zero element, in the top left corner
     /// (the DC component), so the IDCT output will be constant.
     Dc(f32),
+    /// The block only has non-zero elements in the first row, so only a single
+    /// 1D IDCT needs to be performed, the rest can be filled by copying.
+    Horiz([f32; 8]),
+    /// The block only has non-zero elements in the first column, so only a single
+    /// 1D IDCT needs to be performed, the rest can be filled by copying.
+    Vert([f32; 8]),
     /// The general case, a full 2D IDCT needs to be performed.
     Full([[f32; 8]; 8]),
 }
