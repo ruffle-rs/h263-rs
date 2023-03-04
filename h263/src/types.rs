@@ -897,6 +897,9 @@ pub struct Block {
 pub enum DecodedDctBlock {
     /// The block is all zeros, it contributes nothing.
     Zero,
+    /// The block only has a single non-zero element, in the top left corner
+    /// (the DC component), so the IDCT output will be constant.
+    Dc(f32),
     /// The general case, a full 2D IDCT needs to be performed.
     Full([[f32; 8]; 8]),
 }

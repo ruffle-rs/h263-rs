@@ -107,6 +107,27 @@ pub fn idct_channel(
                 DecodedDctBlock::Zero => {
                     // Nothing to do here, this block contributes nothing to the output.
                 }
+                DecodedDctBlock::Dc(dc) => {
+                    // This is a DC block, so we can skip the IDCT entirely, and just use the
+                    // DC coefficient. Note the additional 0.5 factor here compared to the
+                    // `Full` case: this is `BASIS_TABLE[0][0] * BASIS_TABLE[0][0]`, and is
+                    // needed because the 1D IDCTs in both dimensions would apply the `1/sqrt(2)`
+                    // scaling twice, which we have to do here manually.
+                    let clipped_idct =
+                        ((dc * 0.5 / 4.0 + dc.signum() * 0.5) as i16).clamp(-256, 255);
+
+                    for y_offset in 0..ys {
+                        for x_offset in 0..xs {
+                            let x = x_base * 8 + x_offset;
+                            let y = y_base * 8 + y_offset;
+
+                            let mocomp_pixel = output[x + (y * output_samples_per_line)] as i16;
+
+                            output[x + (y * output_samples_per_line)] =
+                                (clipped_idct + mocomp_pixel).clamp(0, 255) as u8;
+                        }
+                    }
+                }
                 DecodedDctBlock::Full(block_data) => {
                     for row in 0..8 {
                         idct_1d(&block_data[row], &mut idct_output[row]);
