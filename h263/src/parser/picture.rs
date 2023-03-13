@@ -87,6 +87,7 @@ bitflags! {
     /// requirement that `UFEP` equal 001. Otherwise, the existence of a
     /// follower can be determined by the set of `PictureOption`s returned in
     /// the `PlusPType`.
+    #[derive(Copy, Clone)]
     pub struct PlusPTypeFollower: u8 {
         const HAS_CUSTOM_FORMAT = 0b1;
         const HAS_CUSTOM_CLOCK = 0b10;

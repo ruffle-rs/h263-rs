@@ -191,6 +191,7 @@ bitflags! {
     /// using them together will result in errors in compliant decoders. Some
     /// `PictureTypeCode`s will also prohibit the use of certain
     /// `PictureOption`s.
+    #[derive(Copy, Clone, Debug)]
     pub struct PictureOption : u32 {
         const USE_SPLIT_SCREEN = 0b1;
         const USE_DOCUMENT_CAMERA = 0b10;
@@ -393,6 +394,7 @@ bitflags! {
     /// ITU-T Recommendation H.263 (01/2005) 5.1.9 `SSS`
     ///
     /// Indicates slice configuration when slice-structured mode is enabled.
+    #[derive(Debug)]
     pub struct SliceSubmode : u8 {
         /// Slices must be rectantular rather than free-running.
         const RECTANGULAR_SLICES = 0b1;
@@ -423,6 +425,7 @@ bitflags! {
     ///
     /// Indicates what backchannel messages the encoder would like out of it's
     /// decoding partner.
+    #[derive(Debug)]
     pub struct ReferencePictureSelectionMode : u8 {
         const RESERVED = 0b1;
         const REQUEST_NEGATIVE_ACKNOWLEDGEMENT = 0b10;
