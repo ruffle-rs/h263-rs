@@ -2,6 +2,7 @@
 
 bitflags! {
     /// Options which influence the decoding of a bitstream.
+    #[derive(Copy, Clone)]
     pub struct DecoderOption : u8 {
         /// Attempt to decode the video as a Sorenson Spark bitstream.
         ///
