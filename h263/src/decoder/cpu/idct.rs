@@ -100,8 +100,11 @@ pub fn idct_channel(
                 continue;
             }
 
-            let xs = 8.min(output_samples_per_line - x_base * 8);
-            let ys = 8.min(output_height - y_base * 8);
+            // It appears that sometimes there are blocks encoded that are entirely outside the frame bounds, so
+            // `x_base * 8` (and `y_base * 8`) can be greater than `output_samples_per_line` (and `output_height`),
+            // hence the need for signed subtraction.
+            let xs = (output_samples_per_line as isize - x_base as isize * 8).clamp(0, 8) as usize;
+            let ys = (output_height as isize - y_base as isize * 8).clamp(0, 8) as usize;
 
             match &block_levels[block_id] {
                 DecodedDctBlock::Zero => {
