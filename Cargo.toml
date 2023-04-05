@@ -2,6 +2,7 @@
 members = [
     "h263",
     "yuv",
+    "flv",
 ]
 resolver = "2"
 
