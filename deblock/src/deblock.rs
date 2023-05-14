@@ -313,3 +313,247 @@ pub fn deblock(data: &[u8], width: usize, strength: u8) -> Vec<u8> {
 
     result
 }
+
+/// These tests serve more as an explanation/demonstration/checking of how all of the above works,
+/// and regression testing, rather than requiring conformance to any externally prescribed results.
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_process_const() {
+        // For constant data of any value (equal ABCD samples), processing with
+        // any strength is no-op, since there is no edge at all to iron out.
+        for val in 0..=255 {
+            for strength in 1..=12 {
+                let (mut a, mut b, mut c, mut d) = (val, val, val, val);
+                process(&mut a, &mut b, &mut c, &mut d, strength);
+                assert_eq!((a, b, c, d), (val, val, val, val));
+            }
+        }
+    }
+
+    #[test]
+    fn test_process_symmetric_input() {
+        // For "XYYX"-like data of any X and Y values, processing with any strength is also no-op,
+        // since there is no edge at the middle to smooth - only a "hill" or a "valley".
+        for outer_val in 0..=255 {
+            for inner_val in 0..=255 {
+                for strength in 1..=12 {
+                    let (mut a, mut b, mut c, mut d) = (outer_val, inner_val, inner_val, outer_val);
+                    process(&mut a, &mut b, &mut c, &mut d, strength);
+                    assert_eq!((a, b, c, d), (outer_val, inner_val, inner_val, outer_val));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_process() {
+        #[rustfmt::skip]
+        // Holds `(input, strength, output)` tuples of the test cases for `process`.
+        // In both the input and the output, the first two values are in one block,
+        // and the last two values are in the neighboring block, forming a line.
+        #[allow(clippy::type_complexity)] // sorry, it is what it is
+        let data: &[((u8, u8, u8, u8), u8, (u8, u8, u8, u8))] = &[
+            // This edge is too small to do anything with it at any strength.
+            ((0, 0, 1, 1), 1, (0, 0, 1, 1)),
+            ((0, 0, 1, 1), 12, (0, 0, 1, 1)),
+
+            // How smoothing with a strength of 1 behaves:
+            ((0, 0, 2, 2), 1, (0, 0, 2, 2)), // Edge too small to do anything with it.
+            ((0, 0, 4, 4), 1, (0, 1, 3, 4)), // Edge is smoothed nicely.
+            ((0, 0, 6, 6), 1, (0, 0, 6, 6)), // Edge too large for this small strength.
+            ((0, 0, 8, 8), 1, (0, 0, 8, 8)), // Edge too large for this small strength.
+
+            // How smoothing with a strength of 2 behaves:
+            ((0, 0, 2, 2), 2, (0, 0, 2, 2)), // Edge too small to do anything with it.
+            ((0, 0, 4, 4), 2, (0, 1, 3, 4)), // Edge is smoothed nicely.
+            ((0, 0, 6, 6), 2, (1, 2, 4, 5)), // Edge is smoothed nicely.
+            ((0, 0, 8, 8), 2, (0, 1, 7, 8)), // A harder edge is smoothed just a little.
+
+            // How smoothing with a strength of 3 behaves:
+            ((0, 0, 2, 2), 3, (0, 0, 2, 2)), // Edge too small to do anything with it.
+            ((0, 0, 4, 4), 3, (0, 1, 3, 4)), // Edge is smoothed nicely.
+            ((0, 0, 6, 6), 3, (1, 2, 4, 5)), // Edge is smoothed nicely.
+            ((0, 0, 8, 8), 3, (1, 3, 5, 7)), // Edge is smoothed nicely.
+
+            // Increasing strength for the same edge:
+            ((0, 0, 10, 10), 1, (0, 0, 10, 10)), // Edge too large for this small strength.
+            ((0, 0, 10, 10), 2, (0, 1, 9, 10)),  // Edge is smoothed a little.
+            ((0, 0, 10, 10), 3, (1, 3, 7, 9)),   // Edge is smoothed nicely.
+            ((0, 0, 10, 10), 4, (1, 3, 7, 9)),   // Edge is smoothed nicely.
+            ((0, 0, 10, 10), 12, (1, 3, 7, 9)),  // Edge is smoothed nicely.
+
+            // Same thing with a bit stronger edge:
+            ((0, 0, 20, 20), 1, (0, 0, 20, 20)),  // Edge too large for this small strength.
+            ((0, 0, 20, 20), 3, (0, 0, 20, 20)),  // Edge too large for this small strength.
+            ((0, 0, 20, 20), 5, (1, 3, 17, 19)),  // Edge barely smoothed.
+            ((0, 0, 20, 20), 6, (2, 5, 15, 18)),  // Edge smoothed a bit more.
+            ((0, 0, 20, 20), 12, (3, 7, 13, 17)), // Edge is almost entirely smoothed.
+
+            // This edge is too large for any strength now to change.
+            ((0, 0, 100, 100), 1, (0, 0, 100, 100)),
+            ((0, 0, 100, 100), 12, (0, 0, 100, 100)),
+
+            // Linear gradient:
+            ((0, 80, 160, 240), 1, (0, 80, 160, 240)),  // not touched
+            ((0, 80, 160, 240), 5, (0, 80, 160, 240)),  // not touched
+            ((0, 80, 160, 240), 6, (1, 82, 158, 239)),  // flattened slightly
+            ((0, 80, 160, 240), 12, (5, 90, 150, 235)), // flattened a bit more
+
+            // Sawtooth pattern:
+            ((0, 10, 5, 15), 2, (0, 10, 5, 15)), // not changed yet
+            ((0, 10, 5, 15), 4, (2, 6, 9, 13)),  // smoothened out
+            ((0, 10, 5, 15), 12, (2, 6, 9, 13)), // smoothened out
+
+            // Step in gradient:
+            ((0, 40, 40, 80), 4, (0, 40, 40, 80)),  // not touched
+            ((0, 40, 40, 80), 6, (1, 38, 42, 79)),  // smoothened slightly
+            ((0, 40, 40, 80), 8, (3, 34, 46, 77)),  // smoothened more
+            ((0, 40, 40, 80), 10, (5, 30, 50, 75)), // smoothened well
+        ];
+
+        for (input, strength, expected) in data.iter() {
+            // Checking the data as is:
+            let (mut a, mut b, mut c, mut d) = *input;
+            process(&mut a, &mut b, &mut c, &mut d, *strength);
+            assert_eq!((a, b, c, d), *expected);
+
+            // Test that it is symmetric wrt. direction (both left-to-right or right-to-left
+            // and top-to-bottom or bottom-to-top), so applying in reverse order should be the same:
+            let (mut a, mut b, mut c, mut d) = *input;
+            process(&mut d, &mut c, &mut b, &mut a, *strength);
+            assert_eq!((a, b, c, d), *expected);
+
+            // Test that it is symmetric wrt. values (dark-to-bright or bright-to-dark),
+            // so applying to the inverse values should give the inverse result:
+            let (mut a, mut b, mut c, mut d) = *input;
+            a = 255 - a;
+            b = 255 - b;
+            c = 255 - c;
+            d = 255 - d;
+            process(&mut a, &mut b, &mut c, &mut d, *strength);
+            assert_eq!((255 - a, 255 - b, 255 - c, 255 - d), *expected);
+        }
+    }
+
+    #[test]
+    fn test_deblock() {
+        // A simple 11x17 image to test deblocking on.
+        // The first 8 values of the horizontal edge and the first 16 values of the vertical edge
+        // will be processed by the SIMD part, and the remaining 3 and 1 values (respectively) will
+        // be processed by the scalar part.
+        // The 5's in the top left block should not be touched, nor should they affect anything,
+        // since they are "in the middle" of the block.
+        // The second horizontal edge should not be touched, as the D sample would be out of the frame.
+        #[rustfmt::skip]
+        let data: &[u8] = &[
+            0,  0,  0,  0,  0,  0,  0,  0,  10, 10, 10,
+            0,  0,  0,  0,  0,  0,  0,  0,  10, 10, 10,
+            0,  0,  5,  5,  0,  0,  0,  0,  10, 10, 10,
+            0,  0,  5,  5,  0,  0,  0,  0,  10, 10, 10,
+            0,  0,  5,  5,  0,  0,  0,  0,  10, 10, 10,
+            0,  0,  5,  5,  0,  0,  0,  0,  10, 10, 10,
+            0,  0,  0,  0,  0,  0,  0,  0,  10, 10, 10,
+            0,  0,  0,  0,  0,  0,  0,  0,  10, 10, 10,
+
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+
+            80, 80, 80, 80, 80, 80, 80, 80,  30, 30, 30,
+        ];
+
+        // A deblocking filter of strength 4 should nicely smooth
+        // the vertical 0-10 edge at the top, should slightly smooth
+        // the horizontal 0-20 edge at the left, and should not touch
+        // the 10-50, 20-50 and 80-30 edges.
+        #[rustfmt::skip]
+        let expected_4: &[u8] = &[
+            0,  0,  0,  0,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  0,  0,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  0,  0,  0,  0,  1,  3,   7,  9, 10,
+            1,  1,  1,  1,  1,  1,  2,  4,   7,  9, 10,
+
+            19, 19, 19, 19, 19, 19, 19, 19,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+            20, 20, 20, 20, 20, 20, 20, 20,  50, 50, 50,
+
+            80, 80, 80, 80, 80, 80, 80, 80,  30, 30, 30,
+        ];
+        let result_4 = deblock(data, 11, 4);
+        assert_eq!(result_4, expected_4);
+
+        // A deblocking filter of strength 8 should nicely smooth
+        // the vertical 0-10 edge at the top, should also smooth the
+        // 0-20 edge at the left, should smooth the 20-50 edge a bit,
+        // and should barely change the 10-50 edge on the right.
+        // It should still not touch the 80-30 edge at the bottom.
+        #[rustfmt::skip]
+        let expected_8: &[u8] = &[
+            0,  0,  0,  0,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  0,  0,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            3,  3,  3,  3,  3,  3,  4,  5,   8,  9, 10,
+            7,  7,  7,  7,  7,  7,  7,  8,  10, 11, 11,
+
+            13, 13, 13, 13, 13, 13, 14, 16,  46, 48, 49,
+            17, 17, 17, 17, 17, 17, 19, 21,  46, 48, 50,
+            20, 20, 20, 20, 20, 20, 22, 25,  45, 48, 50,
+            20, 20, 20, 20, 20, 20, 22, 25,  45, 48, 50,
+            20, 20, 20, 20, 20, 20, 22, 25,  45, 48, 50,
+            20, 20, 20, 20, 20, 20, 22, 25,  45, 48, 50,
+            20, 20, 20, 20, 20, 20, 22, 25,  45, 48, 50,
+            20, 20, 20, 20, 20, 20, 22, 25,  45, 48, 50,
+
+            80, 80, 80, 80, 80, 80, 80, 80,  30, 30, 30,
+        ];
+        let result_8 = deblock(data, 11, 8);
+        assert_eq!(result_8, expected_8);
+
+        // A deblocking filter of strength 12 should nicely smooth almost
+        // all edges, with only 10-50 and 80-30 being a bit less affected.
+        #[rustfmt::skip]
+        let expected_12: &[u8] = &[
+            0,  0,  0,  0,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  0,  0,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            0,  0,  5,  5,  0,  0,  1,  3,   7,  9, 10,
+            3,  3,  3,  3,  3,  3,  5,  7,  10, 12, 14,
+            7,  7,  7,  7,  7,  7,  9, 11,  15, 17, 19,
+
+            13, 13, 13, 13, 13, 13, 18, 23,  31, 36, 41,
+            17, 17, 17, 17, 17, 17, 22, 27,  36, 41, 46,
+            20, 20, 20, 20, 20, 20, 25, 31,  39, 45, 50,
+            20, 20, 20, 20, 20, 20, 25, 31,  39, 45, 50,
+            20, 20, 20, 20, 20, 20, 25, 31,  39, 45, 50,
+            20, 20, 20, 20, 20, 20, 25, 31,  39, 45, 50,
+            20, 20, 20, 20, 20, 20, 25, 31,  39, 45, 50,
+            20, 20, 20, 20, 20, 20, 25, 31,  39, 45, 50,
+
+            80, 80, 80, 80, 80, 80, 77, 74,  36, 33, 30,
+        ];
+        let result_12 = deblock(data, 11, 12);
+        assert_eq!(result_12, expected_12);
+    }
+}
