@@ -766,7 +766,7 @@ mod tests {
     #[test]
     #[allow(clippy::inconsistent_digit_grouping)]
     fn tcoef_table() {
-        let bit_pattern = vec![
+        let bit_pattern = &[
             0b10_1111_01,
             0b0101_0010,
             0b111_00011,
