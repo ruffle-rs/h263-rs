@@ -6,7 +6,7 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-bitflags = "2.0.0"
-thiserror = "1.0"
-num-traits = "0.2.15"
+bitflags = "2.4.0"
+thiserror = "1.0.47"
+num-traits = "0.2.16"
 lazy_static = "1.4.0"
