@@ -759,8 +759,8 @@ impl HalfPel {
         let frac = self.0 & 0x0F;
 
         match frac {
-            0 | 1 | 2 => Self(whole),
-            14 | 15 => Self(whole + 2),
+            0..=2 => Self(whole),
+            14..=15 => Self(whole + 2),
             _ => Self(whole + 1),
         }
     }

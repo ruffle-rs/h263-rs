@@ -1,5 +1,7 @@
 //! Decoded picture type
 
+use std::vec;
+
 use crate::types::{Picture, SourceFormat};
 
 /// A decoded picture.
@@ -37,16 +39,13 @@ impl DecodedPicture {
     pub fn new(picture_header: Picture, format: SourceFormat) -> Option<Self> {
         let (w, h) = format.into_width_and_height()?;
         let luma_samples = w as usize * h as usize;
-        let mut luma = Vec::new();
-        luma.resize(luma_samples, 0);
+        let luma = vec![0; luma_samples];
 
         let chroma_w = (w as f32 / 2.0).ceil() as usize;
         let chroma_h = (h as f32 / 2.0).ceil() as usize;
         let chroma_samples = chroma_w * chroma_h;
-        let mut chroma_b = Vec::new();
-        chroma_b.resize(chroma_samples, 0);
-        let mut chroma_r = Vec::new();
-        chroma_r.resize(chroma_samples, 0);
+        let chroma_b = vec![0; chroma_samples];
+        let chroma_r = vec![0; chroma_samples];
 
         Some(Self {
             picture_header,

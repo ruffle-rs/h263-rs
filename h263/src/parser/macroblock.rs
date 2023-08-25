@@ -559,7 +559,7 @@ mod tests {
     #[test]
     #[allow(clippy::inconsistent_digit_grouping)]
     fn macroblock_mcbpc_iframe() {
-        let bit_pattern = vec![
+        let bit_pattern = &[
             0b1_001_010_0,
             0b11_0001_00,
             0b0001_0000,
@@ -614,7 +614,7 @@ mod tests {
     #[test]
     #[allow(clippy::inconsistent_digit_grouping)]
     fn macroblock_mcbpc_pframe() {
-        let bit_pattern = vec![
+        let bit_pattern = &[
             0b1_0011_001,
             0b0_000101_0,
             0b11_000011,
@@ -752,7 +752,7 @@ mod tests {
     #[test]
     #[allow(clippy::inconsistent_digit_grouping)]
     fn macroblock_modb_table() {
-        let bit_pattern = vec![0b0_10_11_000];
+        let bit_pattern = &[0b0_10_11_000];
         let mut reader = H263Reader::from_source(&bit_pattern[..]);
 
         assert_eq!(reader.read_vlc(&MODB_TABLE).unwrap(), (false, false));
@@ -763,7 +763,7 @@ mod tests {
     #[test]
     #[allow(clippy::inconsistent_digit_grouping)]
     fn macroblock_cbpy_table() {
-        let bit_pattern = vec![
+        let bit_pattern = &[
             0b0011_0010,
             0b1_00100_10,
             0b01_00011_0,
@@ -848,7 +848,7 @@ mod tests {
     #[test]
     #[allow(clippy::inconsistent_digit_grouping)]
     fn macroblock_mvd_table() {
-        let bit_pattern = vec![
+        let bit_pattern = &[
             0b00000000,
             0b00101_000,
             0b00000001,

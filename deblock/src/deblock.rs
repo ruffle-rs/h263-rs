@@ -77,7 +77,7 @@ mod simd_impl {
 
     /// Utility to upcast and convert a slice of 8 `u8` values into a `i16x8` vector.
     #[inline]
-    fn into_simd16(a: &mut [u8]) -> i16x8 {
+    fn into_simd16(a: &[u8]) -> i16x8 {
         debug_assert!(a.len() == 8); // might even help the optimizer in release mode...?
         i16x8::from([
             a[0] as i16,
