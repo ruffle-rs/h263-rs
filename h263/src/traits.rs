@@ -1,7 +1,6 @@
 //! Traits
 
 use num_traits::{CheckedShl, CheckedShr, One, Zero};
-use std::cmp::Eq;
 use std::ops::{BitAnd, BitOr, Not};
 
 pub trait BitReadable:
