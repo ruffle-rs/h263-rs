@@ -369,10 +369,12 @@ pub struct CustomPictureClock {
     /// Whether or not the divisor is multiplied by 1000 or 1001.
     ///
     /// `true` indicates 1001, whilst `false` indicates 1000.
+    #[allow(dead_code)]
     pub times_1001: bool,
 
     /// The divisor, itself stored divided by a constant factor (see
     /// `times_1001`.)
+    #[allow(dead_code)]
     pub divisor: u8,
 }
 
