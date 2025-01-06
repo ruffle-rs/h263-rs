@@ -309,16 +309,12 @@ where
             match self.read_bits(2)? {
                 0b00 => return Ok(HalfPel::from_unit(mantissa + bulk)),
                 0b10 => return Ok(HalfPel::from_unit(-(mantissa + bulk))),
-                0b01 => {
-                    mantissa <<= 1;
-                    bulk <<= 1;
-                }
-                0b11 => {
-                    mantissa = mantissa << 1 | 1;
-                    bulk <<= 1;
+                bits @ (0b01 | 0b11) => {
+                    mantissa = (mantissa << 1) | (bits >> 1);
                 }
                 _ => return Err(Error::InternalDecoderError),
             }
+            bulk <<= 1;
         }
 
         Err(Error::InvalidMvd)
