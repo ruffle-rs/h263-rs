@@ -217,28 +217,27 @@ bitflags! {
     }
 }
 
-lazy_static! {
-    /// The set of options only present in the `OPPTYPE` portion of the picture
-    /// header.
-    pub static ref OPPTYPE_OPTIONS: PictureOption =
-        PictureOption::UNRESTRICTED_MOTION_VECTORS
-            | PictureOption::SYNTAX_BASED_ARITHMETIC_CODING
-            | PictureOption::ADVANCED_PREDICTION
-            | PictureOption::ADVANCED_INTRA_CODING
-            | PictureOption::DEBLOCKING_FILTER
-            | PictureOption::SLICE_STRUCTURED
-            | PictureOption::REFERENCE_PICTURE_SELECTION
-            | PictureOption::INDEPENDENT_SEGMENT_DECODING
-            | PictureOption::ALTERNATIVE_INTER_VLC
-            | PictureOption::MODIFIED_QUANTIZATION;
+/// The set of options only present in the `OPPTYPE` portion of the picture
+/// header.
+///
+/// If a picture does not contain an `OPPTYPE`, then all of these options
+/// will be carried forward from the previous picture's options.
+pub const OPPTYPE_OPTIONS: PictureOption = PictureOption::UNRESTRICTED_MOTION_VECTORS
+    .union(PictureOption::SYNTAX_BASED_ARITHMETIC_CODING)
+    .union(PictureOption::ADVANCED_PREDICTION)
+    .union(PictureOption::ADVANCED_INTRA_CODING)
+    .union(PictureOption::DEBLOCKING_FILTER)
+    .union(PictureOption::SLICE_STRUCTURED)
+    .union(PictureOption::REFERENCE_PICTURE_SELECTION)
+    .union(PictureOption::INDEPENDENT_SEGMENT_DECODING)
+    .union(PictureOption::ALTERNATIVE_INTER_VLC)
+    .union(PictureOption::MODIFIED_QUANTIZATION);
 
-    /// The set of options only present in the `MPPTYPE` portion of the picture
-    /// header.
-    pub static ref MPPTYPE_OPTIONS: PictureOption =
-        PictureOption::REFERENCE_PICTURE_RESAMPLING
-            | PictureOption::REDUCED_RESOLUTION_UPDATE
-            | PictureOption::ROUNDING_TYPE_ONE;
-}
+/// The set of options only present in the `MPPTYPE` portion of the picture
+/// header.
+pub const MPPTYPE_OPTIONS: PictureOption = PictureOption::REFERENCE_PICTURE_RESAMPLING
+    .union(PictureOption::REDUCED_RESOLUTION_UPDATE)
+    .union(PictureOption::ROUNDING_TYPE_ONE);
 
 /// All available picture types in H.263.
 ///
