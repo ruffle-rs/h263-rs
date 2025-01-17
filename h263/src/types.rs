@@ -214,30 +214,24 @@ bitflags! {
         ///
         /// This flag is only set by Sorenson Spark bitstreams.
         const USE_DEBLOCKER = 0b10000000000000000;
+
+        const OPPTYPE_OPTIONS =
+          Self::UNRESTRICTED_MOTION_VECTORS.bits()
+        | Self::SYNTAX_BASED_ARITHMETIC_CODING.bits()
+        | Self::ADVANCED_PREDICTION.bits()
+        | Self::ADVANCED_INTRA_CODING.bits()
+        | Self::DEBLOCKING_FILTER.bits()
+        | Self::SLICE_STRUCTURED.bits()
+        | Self::REFERENCE_PICTURE_SELECTION.bits()
+        | Self::INDEPENDENT_SEGMENT_DECODING.bits()
+        | Self::ALTERNATIVE_INTER_VLC.bits()
+        | Self::MODIFIED_QUANTIZATION.bits();
+
+        const MPPTYPE_OPTIONS =
+          Self::REFERENCE_PICTURE_RESAMPLING.bits()
+        | Self::REDUCED_RESOLUTION_UPDATE.bits()
+        | Self::ROUNDING_TYPE_ONE.bits();
     }
-}
-
-lazy_static! {
-    /// The set of options only present in the `OPPTYPE` portion of the picture
-    /// header.
-    pub static ref OPPTYPE_OPTIONS: PictureOption =
-        PictureOption::UNRESTRICTED_MOTION_VECTORS
-            | PictureOption::SYNTAX_BASED_ARITHMETIC_CODING
-            | PictureOption::ADVANCED_PREDICTION
-            | PictureOption::ADVANCED_INTRA_CODING
-            | PictureOption::DEBLOCKING_FILTER
-            | PictureOption::SLICE_STRUCTURED
-            | PictureOption::REFERENCE_PICTURE_SELECTION
-            | PictureOption::INDEPENDENT_SEGMENT_DECODING
-            | PictureOption::ALTERNATIVE_INTER_VLC
-            | PictureOption::MODIFIED_QUANTIZATION;
-
-    /// The set of options only present in the `MPPTYPE` portion of the picture
-    /// header.
-    pub static ref MPPTYPE_OPTIONS: PictureOption =
-        PictureOption::REFERENCE_PICTURE_RESAMPLING
-            | PictureOption::REDUCED_RESOLUTION_UPDATE
-            | PictureOption::ROUNDING_TYPE_ONE;
 }
 
 /// All available picture types in H.263.
