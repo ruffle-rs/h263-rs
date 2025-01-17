@@ -141,11 +141,10 @@ impl H263State {
             let next_running_options = if next_picture.has_plusptype && next_picture.has_opptype {
                 next_picture.options
             } else if next_picture.has_plusptype {
-                (next_picture.options & !*OPPTYPE_OPTIONS)
-                    | (self.running_options & *OPPTYPE_OPTIONS)
+                (next_picture.options & !OPPTYPE_OPTIONS) | (self.running_options & OPPTYPE_OPTIONS)
             } else {
-                (next_picture.options & !*OPPTYPE_OPTIONS & !*MPPTYPE_OPTIONS)
-                    | (self.running_options & (*OPPTYPE_OPTIONS | *MPPTYPE_OPTIONS))
+                (next_picture.options & !OPPTYPE_OPTIONS & !MPPTYPE_OPTIONS)
+                    | (self.running_options & (OPPTYPE_OPTIONS | MPPTYPE_OPTIONS))
             };
 
             let format = if let Some(format) = next_picture.format {
