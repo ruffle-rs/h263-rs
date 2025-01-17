@@ -1,34 +1,32 @@
 //! Inverse discrete cosine transform
 
+// TODO: Restore this when f32::cos is a const fn.
 /*
-use lazy_static::lazy_static;
 use std::f32::consts::{FRAC_1_SQRT_2, PI};
 
 /// The 1D basis function of the H.263 IDCT.
 ///
 /// `freq` is the frequency of the component
 /// `x` is the point at which the cosine is to be computed
-fn basis(freq: f32, x: f32) -> f32 {
+const fn basis(freq: i32, x: i32) -> f32 {
     f32::cos(PI * ((x as f32 + 0.5) / 8.0) * freq as f32)
 }
 
-lazy_static! {
-    /// Lookup table for `basis`.
-    ///
-    /// The outer parameter represents all valid `spatial` inputs, while the
-    /// inner represents all valid `freq` inputs.
-    /// Already includes the former CUV_TABLE factors.
-    static ref BASIS_TABLE : [[f32; 8]; 8] = [
-        [basis(0.0, 0.0) * FRAC_1_SQRT_2, basis(0.0, 1.0) * FRAC_1_SQRT_2, basis(0.0, 2.0) * FRAC_1_SQRT_2, basis(0.0, 3.0) * FRAC_1_SQRT_2, basis(0.0, 4.0) * FRAC_1_SQRT_2, basis(0.0, 5.0) * FRAC_1_SQRT_2, basis(0.0, 6.0) * FRAC_1_SQRT_2, basis(0.0, 7.0) * FRAC_1_SQRT_2],
-        [basis(1.0, 0.0), basis(1.0, 1.0), basis(1.0, 2.0), basis(1.0, 3.0),basis(1.0, 4.0),basis(1.0, 5.0),basis(1.0, 6.0),basis(1.0, 7.0)],
-        [basis(2.0, 0.0), basis(2.0, 1.0), basis(2.0, 2.0), basis(2.0, 3.0),basis(2.0, 4.0),basis(2.0, 5.0),basis(2.0, 6.0),basis(2.0, 7.0)],
-        [basis(3.0, 0.0), basis(3.0, 1.0), basis(3.0, 2.0), basis(3.0, 3.0),basis(3.0, 4.0),basis(3.0, 5.0),basis(3.0, 6.0),basis(3.0, 7.0)],
-        [basis(4.0, 0.0), basis(4.0, 1.0), basis(4.0, 2.0), basis(4.0, 3.0),basis(4.0, 4.0),basis(4.0, 5.0),basis(4.0, 6.0),basis(4.0, 7.0)],
-        [basis(5.0, 0.0), basis(5.0, 1.0), basis(5.0, 2.0), basis(5.0, 3.0),basis(5.0, 4.0),basis(5.0, 5.0),basis(5.0, 6.0),basis(5.0, 7.0)],
-        [basis(6.0, 0.0), basis(6.0, 1.0), basis(6.0, 2.0), basis(6.0, 3.0),basis(6.0, 4.0),basis(6.0, 5.0),basis(6.0, 6.0),basis(6.0, 7.0)],
-        [basis(7.0, 0.0), basis(7.0, 1.0), basis(7.0, 2.0), basis(7.0, 3.0),basis(7.0, 4.0),basis(7.0, 5.0),basis(7.0, 6.0),basis(7.0, 7.0)],
-    ];
-}
+/// Lookup table for `basis`.
+///
+/// The outer parameter represents all valid `spatial` inputs, while the
+/// inner represents all valid `freq` inputs.
+/// Already includes the former CUV_TABLE factors.
+const BASIS_TABLE: [[f32; 8]; 8] = [
+    [basis(0, 0) * FRAC_1_SQRT_2, basis(0, 1) * FRAC_1_SQRT_2, basis(0, 2) * FRAC_1_SQRT_2, basis(0, 3) * FRAC_1_SQRT_2, basis(0, 4) * FRAC_1_SQRT_2, basis(0, 5) * FRAC_1_SQRT_2, basis(0, 6) * FRAC_1_SQRT_2, basis(0, 7) * FRAC_1_SQRT_2],
+    [basis(1, 0), basis(1, 1), basis(1, 2), basis(1, 3), basis(1, 4), basis(1, 5), basis(1, 6), basis(1, 7)],
+    [basis(2, 0), basis(2, 1), basis(2, 2), basis(2, 3), basis(2, 4), basis(2, 5), basis(2, 6), basis(2, 7)],
+    [basis(3, 0), basis(3, 1), basis(3, 2), basis(3, 3), basis(3, 4), basis(3, 5), basis(3, 6), basis(3, 7)],
+    [basis(4, 0), basis(4, 1), basis(4, 2), basis(4, 3), basis(4, 4), basis(4, 5), basis(4, 6), basis(4, 7)],
+    [basis(5, 0), basis(5, 1), basis(5, 2), basis(5, 3), basis(5, 4), basis(5, 5), basis(5, 6), basis(5, 7)],
+    [basis(6, 0), basis(6, 1), basis(6, 2), basis(6, 3), basis(6, 4), basis(6, 5), basis(6, 6), basis(6, 7)],
+    [basis(7, 0), basis(7, 1), basis(7, 2), basis(7, 3), basis(7, 4), basis(7, 5), basis(7, 6), basis(7, 7)],
+];
 */
 
 use crate::types::DecodedDctBlock;
