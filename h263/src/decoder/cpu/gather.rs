@@ -33,7 +33,7 @@ fn read_sample(
 /// Linear interpolation between two values by 0 or 50%.
 fn lerp(sample_a: u8, sample_b: u8, middle: bool) -> u8 {
     if middle {
-        ((sample_a as u16 + sample_b as u16 + 1) / 2) as u8
+        (sample_a as u16 + sample_b as u16).div_ceil(2) as u8
     } else {
         sample_a
     }
