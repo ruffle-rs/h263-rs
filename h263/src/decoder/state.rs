@@ -7,7 +7,7 @@ use crate::error::{Error, Result};
 use crate::parser::{decode_block, decode_gob, decode_macroblock, decode_picture, H263Reader};
 use crate::types::{
     DecodedDctBlock, GroupOfBlocks, Macroblock, MacroblockType, MotionVector, Picture,
-    PictureOption, PictureTypeCode, MPPTYPE_OPTIONS, OPPTYPE_OPTIONS,
+    PictureOption, PictureTypeCode,
 };
 use std::collections::HashMap;
 use std::io::Read;
@@ -147,11 +147,14 @@ impl H263State {
             let next_running_options = if next_picture.has_plusptype && next_picture.has_opptype {
                 next_picture.options
             } else if next_picture.has_plusptype {
-                (next_picture.options & !*OPPTYPE_OPTIONS)
-                    | (self.running_options & *OPPTYPE_OPTIONS)
+                (next_picture.options & !PictureOption::OPPTYPE_OPTIONS)
+                    | (self.running_options & PictureOption::OPPTYPE_OPTIONS)
             } else {
-                (next_picture.options & !*OPPTYPE_OPTIONS & !*MPPTYPE_OPTIONS)
-                    | (self.running_options & (*OPPTYPE_OPTIONS | *MPPTYPE_OPTIONS))
+                (next_picture.options
+                    & !PictureOption::OPPTYPE_OPTIONS
+                    & !PictureOption::MPPTYPE_OPTIONS)
+                    | (self.running_options
+                        & (PictureOption::OPPTYPE_OPTIONS | PictureOption::MPPTYPE_OPTIONS))
             };
 
             let format = if let Some(format) = next_picture.format {

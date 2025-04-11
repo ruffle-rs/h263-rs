@@ -114,23 +114,6 @@ pub type PlusPType = (
     bool,
 );
 
-lazy_static! {
-    /// The set of picture options defined by an `OPPTYPE` record.
-    ///
-    /// If a picture does not contain an `OPPTYPE`, then all of these options
-    /// will be carried forward from the previous picture's options.
-    static ref OPPTYPE_OPTIONS: PictureOption = PictureOption::UNRESTRICTED_MOTION_VECTORS
-        | PictureOption::SYNTAX_BASED_ARITHMETIC_CODING
-        | PictureOption::ADVANCED_PREDICTION
-        | PictureOption::ADVANCED_INTRA_CODING
-        | PictureOption::DEBLOCKING_FILTER
-        | PictureOption::SLICE_STRUCTURED
-        | PictureOption::REFERENCE_PICTURE_SELECTION
-        | PictureOption::INDEPENDENT_SEGMENT_DECODING
-        | PictureOption::ALTERNATIVE_INTER_VLC
-        | PictureOption::MODIFIED_QUANTIZATION;
-}
-
 /// Attempts to read a `PLUSPTYPE` record from the bitstream.
 ///
 /// The set of previous picture options are used to carry forward previously-
@@ -229,7 +212,7 @@ where
                 followers |= PlusPTypeFollower::HAS_REFERENCE_LAYER_NUMBER;
             }
         } else {
-            options |= previous_picture_options & *OPPTYPE_OPTIONS;
+            options |= previous_picture_options & PictureOption::OPPTYPE_OPTIONS;
         }
 
         let mpptype: u16 = reader.read_bits(9)?;
