@@ -52,7 +52,7 @@ mod simd_impl {
         // NOTE: The `true` return value of these comparisons is all `1` bits,
         // which is numerically `-1`, hence the reversed usage ot `lt` and `gt`,
         // as compared to scalar comparisons involving eg. `i16` and `bool`.
-        x.cmp_lt(i16x8::ZERO) - x.cmp_gt(i16x8::ZERO)
+        x.simd_lt(i16x8::ZERO) - x.simd_gt(i16x8::ZERO)
     }
 
     /// Utility mimicking `i16::clamp` for `i16x8` - see: https://github.com/Lokathor/wide/issues/131
@@ -113,10 +113,10 @@ mod simd_impl {
         let res_c = clamp_simd(c16 - d1, i16x8::ZERO, i16x8::splat(255));
         let res_d = d16 + d2;
 
-        let res_a = res_a.as_array_ref();
-        let res_b = res_b.as_array_ref();
-        let res_c = res_c.as_array_ref();
-        let res_d = res_d.as_array_ref();
+        let res_a = res_a.as_array();
+        let res_b = res_b.as_array();
+        let res_c = res_c.as_array();
+        let res_d = res_d.as_array();
 
         for i in 0..8 {
             A[i] = res_a[i] as u8;

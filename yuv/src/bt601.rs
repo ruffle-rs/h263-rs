@@ -55,7 +55,7 @@ fn yuv_to_rgba_4x(yuv: (&[u8; 4], &[u8; 2], &[u8; 2]), rgba: &mut [u8; 16]) {
     #[cfg(target_endian = "big")] // I haven't tested this, but should work
     let rgba_4x = ((r << 24) | (g << 16)) | ((b << 8) | (a));
 
-    rgba.copy_from_slice(bytemuck::cast::<i32x4, u8x16>(rgba_4x).as_array_ref())
+    rgba.copy_from_slice(bytemuck::cast::<i32x4, u8x16>(rgba_4x).as_array())
 }
 
 // A single-pixel version, only for testing.
