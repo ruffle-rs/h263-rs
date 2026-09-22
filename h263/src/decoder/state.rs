@@ -59,22 +59,16 @@ impl H263State {
     ///
     /// If `None`, then no pictures have yet to be decoded.
     pub fn get_last_picture(&self) -> Option<&DecodedPicture> {
-        if self.last_picture.is_none() {
-            None
-        } else {
-            self.reference_states.get(&self.last_picture.unwrap())
-        }
+        self.last_picture
+            .and_then(|last_picture| self.reference_states.get(&last_picture))
     }
 
     /// Get the implicit reference picture decoded in the bitstream.
     ///
     /// If `None`, then no pictures have yet to be decoded.
     pub fn get_reference_picture(&self) -> Option<&DecodedPicture> {
-        if self.reference_picture.is_none() {
-            None
-        } else {
-            self.reference_states.get(&self.last_picture.unwrap())
-        }
+        self.reference_picture
+            .and_then(|reference_picture| self.reference_states.get(&reference_picture))
     }
 
     /// Remove all disposable pictures from the reference states list.
