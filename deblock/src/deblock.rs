@@ -44,7 +44,7 @@ mod scalar_impl {
 
 mod simd_impl {
     use std::ops::Shr;
-    use wide::{i16x8, CmpGt, CmpLt};
+    use wide::i16x8;
 
     /// Utility mimicking `i16::signum` for `i16x8` - see https://github.com/Lokathor/wide/issues/131
     #[inline]
