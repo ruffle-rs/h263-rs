@@ -252,14 +252,14 @@ fn deblock_vert(result: &mut [u8], width: usize, strength: u8) {
             let (row_6_chunks, _) = row_6[2..].as_chunks_mut::<8>();
             let (row_7_chunks, _) = row_7[2..].as_chunks_mut::<8>();
             let parallel_iter = izip!(
-                row_0_chunks.iter_mut(),
-                row_1_chunks.iter_mut(),
-                row_2_chunks.iter_mut(),
-                row_3_chunks.iter_mut(),
-                row_4_chunks.iter_mut(),
-                row_5_chunks.iter_mut(),
-                row_6_chunks.iter_mut(),
-                row_7_chunks.iter_mut()
+                row_0_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_1_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_2_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_3_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_4_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_5_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_6_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_7_chunks.iter_mut().map(|chunk| chunk.as_mut_slice())
             );
 
             // Transposing the (vertical) sample tuples into SIMD vectors, processing them,
