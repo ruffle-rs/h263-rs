@@ -146,14 +146,15 @@ fn deblock_horiz(result: &mut [u8], width: usize, strength: u8) {
         let (row_d, _) = rest.split_at_mut(width);
 
         // the first N*8 samples (horizontally) are handled by the SIMD implementation
-        let row_a_chunks = row_a.chunks_exact_mut(8);
-        let row_b_chunks = row_b.chunks_exact_mut(8);
-        let row_c_chunks = row_c.chunks_exact_mut(8);
-        let row_d_chunks = row_d.chunks_exact_mut(8);
+        let (row_a_chunks, row_a_rem) = row_a.as_chunks_mut::<8>();
+        let (row_b_chunks, row_b_rem) = row_b.as_chunks_mut::<8>();
+        let (row_c_chunks, row_c_rem) = row_c.as_chunks_mut::<8>();
+        let (row_d_chunks, row_d_rem) = row_d.as_chunks_mut::<8>();
 
         // luckily the memory layout is advantageous here, no need for transposing
         // chunks into the SIMD lanes
         for (((A, B), C), D) in row_a_chunks
+            .iter_mut()
             .zip(row_b_chunks)
             .zip(row_c_chunks)
             .zip(row_d_chunks)
@@ -162,11 +163,6 @@ fn deblock_horiz(result: &mut [u8], width: usize, strength: u8) {
         }
 
         // the remaining <=7 columns are handled by the scalar implementation
-        let row_a_rem = row_a.chunks_exact_mut(8).into_remainder();
-        let row_b_rem = row_b.chunks_exact_mut(8).into_remainder();
-        let row_c_rem = row_c.chunks_exact_mut(8).into_remainder();
-        let row_d_rem = row_d.chunks_exact_mut(8).into_remainder();
-
         for (((A, B), C), D) in row_a_rem
             .iter_mut()
             .zip(row_b_rem)
@@ -247,15 +243,23 @@ fn deblock_vert(result: &mut [u8], width: usize, strength: u8) {
             // (this offset is done by the `[2..]` part). In the first halves of these
             // chunks are the "middle columns" of the 8x8 blocks, not to be touched.
             // This was easier than iterating over 4-wide chunks and skipping every odd one.
+            let (row_0_chunks, _) = row_0[2..].as_chunks_mut::<8>();
+            let (row_1_chunks, _) = row_1[2..].as_chunks_mut::<8>();
+            let (row_2_chunks, _) = row_2[2..].as_chunks_mut::<8>();
+            let (row_3_chunks, _) = row_3[2..].as_chunks_mut::<8>();
+            let (row_4_chunks, _) = row_4[2..].as_chunks_mut::<8>();
+            let (row_5_chunks, _) = row_5[2..].as_chunks_mut::<8>();
+            let (row_6_chunks, _) = row_6[2..].as_chunks_mut::<8>();
+            let (row_7_chunks, _) = row_7[2..].as_chunks_mut::<8>();
             let parallel_iter = izip!(
-                row_0[2..].chunks_exact_mut(8),
-                row_1[2..].chunks_exact_mut(8),
-                row_2[2..].chunks_exact_mut(8),
-                row_3[2..].chunks_exact_mut(8),
-                row_4[2..].chunks_exact_mut(8),
-                row_5[2..].chunks_exact_mut(8),
-                row_6[2..].chunks_exact_mut(8),
-                row_7[2..].chunks_exact_mut(8)
+                row_0_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_1_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_2_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_3_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_4_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_5_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_6_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
+                row_7_chunks.iter_mut().map(|chunk| chunk.as_mut_slice())
             );
 
             // Transposing the (vertical) sample tuples into SIMD vectors, processing them,
@@ -283,7 +287,8 @@ fn deblock_vert(result: &mut [u8], width: usize, strength: u8) {
             .into_remainder()
             .chunks_exact_mut(width)
         {
-            for chunk in row[2..].chunks_exact_mut(8) {
+            let (chunks, _) = row[2..].as_chunks_mut::<8>();
+            for chunk in chunks {
                 let mut A = chunk[4];
                 let mut B = chunk[5];
                 let mut C = chunk[6];
