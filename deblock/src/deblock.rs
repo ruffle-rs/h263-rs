@@ -179,22 +179,22 @@ fn deblock_horiz(result: &mut [u8], width: usize, strength: u8) {
 /// Applies the deblocking with the given strength to the vertical block edges.
 #[allow(non_snake_case)]
 fn deblock_vert(result: &mut [u8], width: usize, strength: u8) {
-    /// Holds a bundle of 8 mutable byte slice references.
+    /// Holds a bundle of 8 mutable references to 8-byte arrays.
     /// This is a tuple instead of an array due to `izip!` usage below.
-    type ByteSliceMutRefOctet<'a> = (
-        &'a mut [u8],
-        &'a mut [u8],
-        &'a mut [u8],
-        &'a mut [u8],
-        &'a mut [u8],
-        &'a mut [u8],
-        &'a mut [u8],
-        &'a mut [u8],
+    type ByteArrayMutRefOctet<'a> = (
+        &'a mut [u8; 8],
+        &'a mut [u8; 8],
+        &'a mut [u8; 8],
+        &'a mut [u8; 8],
+        &'a mut [u8; 8],
+        &'a mut [u8; 8],
+        &'a mut [u8; 8],
+        &'a mut [u8; 8],
     );
 
-    /// Indexes into each slice in a `ByteSliceMutRefOctet`, returning an array of the values.
+    /// Indexes into each array in a `ByteArrayMutRefOctet`, returning an array of the values.
     #[inline]
-    fn extract_column(arrays: &ByteSliceMutRefOctet, i: usize) -> [u8; 8] {
+    fn extract_column(arrays: &ByteArrayMutRefOctet, i: usize) -> [u8; 8] {
         [
             arrays.0[i],
             arrays.1[i],
@@ -207,9 +207,9 @@ fn deblock_vert(result: &mut [u8], width: usize, strength: u8) {
         ]
     }
 
-    /// Sets a single value in each slice in a `ByteSliceMutRefOctet` to the corresponding value in `a`.
+    /// Sets a single value in each array in a `ByteArrayMutRefOctet` to the corresponding value in `a`.
     #[inline]
-    fn set_column(arrays: &mut ByteSliceMutRefOctet, i: usize, a: [u8; 8]) {
+    fn set_column(arrays: &mut ByteArrayMutRefOctet, i: usize, a: [u8; 8]) {
         arrays.0[i] = a[0];
         arrays.1[i] = a[1];
         arrays.2[i] = a[2];
@@ -252,14 +252,14 @@ fn deblock_vert(result: &mut [u8], width: usize, strength: u8) {
             let (row_6_chunks, _) = row_6[2..].as_chunks_mut::<8>();
             let (row_7_chunks, _) = row_7[2..].as_chunks_mut::<8>();
             let parallel_iter = izip!(
-                row_0_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
-                row_1_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
-                row_2_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
-                row_3_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
-                row_4_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
-                row_5_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
-                row_6_chunks.iter_mut().map(|chunk| chunk.as_mut_slice()),
-                row_7_chunks.iter_mut().map(|chunk| chunk.as_mut_slice())
+                row_0_chunks.iter_mut(),
+                row_1_chunks.iter_mut(),
+                row_2_chunks.iter_mut(),
+                row_3_chunks.iter_mut(),
+                row_4_chunks.iter_mut(),
+                row_5_chunks.iter_mut(),
+                row_6_chunks.iter_mut(),
+                row_7_chunks.iter_mut()
             );
 
             // Transposing the (vertical) sample tuples into SIMD vectors, processing them,
