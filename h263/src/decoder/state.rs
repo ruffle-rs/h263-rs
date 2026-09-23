@@ -73,7 +73,7 @@ impl H263State {
         if self.reference_picture.is_none() {
             None
         } else {
-            self.reference_states.get(&self.last_picture.unwrap())
+            self.reference_states.get(&self.reference_picture.unwrap())
         }
     }
 
