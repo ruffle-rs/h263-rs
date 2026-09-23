@@ -46,25 +46,10 @@ mod simd_impl {
     use std::ops::Shr;
     use wide::i16x8;
 
-    /// Utility mimicking `i16::signum` for `i16x8` - see https://github.com/Lokathor/wide/issues/131
-    #[inline]
-    fn signum_simd(x: i16x8) -> i16x8 {
-        // NOTE: The `true` return value of these comparisons is all `1` bits,
-        // which is numerically `-1`, hence the reversed usage ot `lt` and `gt`,
-        // as compared to scalar comparisons involving eg. `i16` and `bool`.
-        x.simd_lt(i16x8::ZERO) - x.simd_gt(i16x8::ZERO)
-    }
-
-    /// Utility mimicking `i16::clamp` for `i16x8` - see: https://github.com/Lokathor/wide/issues/131
-    #[inline]
-    fn clamp_simd(x: i16x8, min: i16x8, max: i16x8) -> i16x8 {
-        x.max(min).min(max)
-    }
-
     /// Same as `scalar::up_down_ramp`, but operates on a vector of 8 values in parallel
     #[inline]
     fn up_down_ramp_simd(x: i16x8, strength: i16) -> i16x8 {
-        signum_simd(x)
+        x.signum()
             * (x.abs() - (2 * (x.abs() - i16x8::splat(strength))).max(i16x8::ZERO)).max(i16x8::ZERO)
     }
 
@@ -72,7 +57,7 @@ mod simd_impl {
     #[inline]
     fn clipd1_simd(x: i16x8, lim: i16x8) -> i16x8 {
         let la = lim.abs();
-        clamp_simd(x, -la, la)
+        x.clamp(-la, la)
     }
 
     /// Utility to upcast and convert an array of 8 `u8` values into a `i16x8` vector.
@@ -113,8 +98,8 @@ mod simd_impl {
         let d2: i16x8 = clipd1_simd((a16 - d16).shr(2), d1.shr(1));
 
         let res_a = a16 - d2;
-        let res_b = clamp_simd(b16 + d1, i16x8::ZERO, i16x8::splat(255));
-        let res_c = clamp_simd(c16 - d1, i16x8::ZERO, i16x8::splat(255));
+        let res_b = (b16 + d1).clamp(i16x8::ZERO, i16x8::splat(255));
+        let res_c = (c16 - d1).clamp(i16x8::ZERO, i16x8::splat(255));
         let res_d = d16 + d2;
 
         let res_a = res_a.as_array();
