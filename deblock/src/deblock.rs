@@ -75,10 +75,10 @@ mod simd_impl {
         clamp_simd(x, -la, la)
     }
 
-    /// Utility to upcast and convert a slice of 8 `u8` values into a `i16x8` vector.
+    /// Utility to upcast and convert an array of 8 `u8` values into a `i16x8` vector.
     #[inline]
-    fn into_simd16(a: &[u8]) -> i16x8 {
-        debug_assert!(a.len() == 8); // might even help the optimizer in release mode...?
+    fn into_simd16(a: &[u8; 8]) -> i16x8 {
+        // Spelled out on purpose: `i16x8::from(a.map(i16::from))` made `deblock` ~40% slower.
         i16x8::from([
             a[0] as i16,
             a[1] as i16,
@@ -92,11 +92,15 @@ mod simd_impl {
     }
 
     /// Same as `scalar::process`, but performs it on 8 independent sets of values in parallel.
-    /// All slice parameters must have a length of 8 - this not enforced by the type system due
-    /// to usage in chunked iteration below, see: https://github.com/rust-lang/rust/issues/74985
     #[allow(non_snake_case)]
     #[inline]
-    pub fn process_simd(A: &mut [u8], B: &mut [u8], C: &mut [u8], D: &mut [u8], strength: u8) {
+    pub fn process_simd(
+        A: &mut [u8; 8],
+        B: &mut [u8; 8],
+        C: &mut [u8; 8],
+        D: &mut [u8; 8],
+        strength: u8,
+    ) {
         debug_assert!((1..=12).contains(&strength));
 
         let a16 = into_simd16(A);
