@@ -35,6 +35,13 @@ pub struct H263State {
 
     /// All previously-encoded reference pictures.
     reference_states: HashMap<u16, DecodedPicture>,
+
+    /// The last decoded picture, if it is disposable.
+    ///
+    /// Disposable pictures are kept apart from `reference_states`, as they can
+    /// have the temporal reference of a reference picture, which they must not
+    /// replace.
+    disposable_picture: Option<DecodedPicture>,
 }
 
 impl H263State {
@@ -46,6 +53,7 @@ impl H263State {
             reference_picture: None,
             running_options: PictureOption::empty(),
             reference_states: HashMap::new(),
+            disposable_picture: None,
         }
     }
 
@@ -59,6 +67,9 @@ impl H263State {
     ///
     /// If `None`, then no pictures have yet to be decoded.
     pub fn get_last_picture(&self) -> Option<&DecodedPicture> {
+        if self.disposable_picture.is_some() {
+            return self.disposable_picture.as_ref();
+        }
         self.last_picture
             .and_then(|last_picture| self.reference_states.get(&last_picture))
     }
@@ -474,15 +485,17 @@ impl H263State {
 
             let this_tr = next_decoded_picture.as_header().temporal_reference;
             self.last_picture = Some(this_tr);
-            if !next_decoded_picture
+            if next_decoded_picture
                 .as_header()
                 .picture_type
                 .is_disposable()
             {
+                self.disposable_picture = Some(next_decoded_picture);
+            } else {
                 self.reference_picture = Some(this_tr);
+                self.disposable_picture = None;
+                self.reference_states.insert(this_tr, next_decoded_picture);
             }
-
-            self.reference_states.insert(this_tr, next_decoded_picture);
             self.cleanup_buffers();
 
             reader.commit();
@@ -531,5 +544,75 @@ mod tests {
                 chroma_r
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod disposable_tests {
+    use super::*;
+
+    /// Bits written most significant first.
+    fn bits(fields: &[(u32, u32)]) -> Vec<u8> {
+        let mut out = vec![];
+        let mut n = 0;
+        for &(value, len) in fields {
+            for i in (0..len).rev() {
+                if n % 8 == 0 {
+                    out.push(0);
+                }
+                *out.last_mut().unwrap() |= (((value >> i) & 1) as u8) << (7 - n % 8);
+                n += 1;
+            }
+        }
+        out
+    }
+
+    /// A 16x16 Sorenson Spark picture header with temporal reference 0.
+    fn header(picture_type: u32) -> Vec<(u32, u32)> {
+        vec![
+            (1, 17),           // picture start code
+            (1, 5),            // version
+            (0, 8),            // temporal reference
+            (0, 3),            // custom size, 8 bits each
+            (16, 8),           // width
+            (16, 8),           // height
+            (picture_type, 2), // 0: I, 2: disposable P
+            (0, 1),            // deblocking
+            (10, 5),           // quantizer
+            (0, 1),            // no extra information
+        ]
+    }
+
+    #[test]
+    fn disposable_picture_is_no_reference() {
+        let mut state = H263State::new(DecoderOption::SORENSON_SPARK_BITSTREAM);
+
+        // An intra macroblock with only a DC coefficient: MCBPC 1 (intra, no
+        // chroma), CBPY 0011 (no luma), then four luma and two chroma DCs.
+        let mut i_frame = header(0);
+        i_frame.extend([(1, 1), (0b0011, 4)]);
+        i_frame.extend([(64, 8); 6]);
+        let data = bits(&i_frame);
+        state
+            .decode_next_picture(&mut H263Reader::from_source(&data[..]))
+            .unwrap();
+
+        // A disposable P-picture with the same temporal reference, whose only
+        // macroblock is coded: COD 0, MCBPC 1 (inter, no chroma), CBPY 11 (no
+        // luma), and a zero motion vector.
+        let mut d_frame = header(2);
+        d_frame.extend([(0, 1), (1, 1), (0b11, 2), (1, 1), (1, 1)]);
+        let data = bits(&d_frame);
+        state
+            .decode_next_picture(&mut H263Reader::from_source(&data[..]))
+            .unwrap();
+
+        let last = state.get_last_picture().unwrap().as_header().picture_type;
+        assert!(matches!(last, PictureTypeCode::DisposablePFrame));
+        let reference = state.get_reference_picture().unwrap();
+        assert!(matches!(
+            reference.as_header().picture_type,
+            PictureTypeCode::IFrame
+        ));
     }
 }
