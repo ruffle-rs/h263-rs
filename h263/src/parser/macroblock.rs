@@ -460,7 +460,11 @@ where
         if is_coded == 0 {
             let mcbpc = match picture.picture_type {
                 PictureTypeCode::IFrame => reader.read_vlc(&MCBPC_I_TABLE[..])?,
-                PictureTypeCode::PFrame => reader.read_vlc(&MCBPC_P_TABLE[..])?,
+                // A disposable P-frame (Sorenson Spark) is a P-frame that
+                // nothing predicts from.
+                PictureTypeCode::PFrame | PictureTypeCode::DisposablePFrame => {
+                    reader.read_vlc(&MCBPC_P_TABLE[..])?
+                }
                 _ => return Err(Error::UnimplementedDecoding),
             };
 
