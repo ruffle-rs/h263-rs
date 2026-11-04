@@ -387,7 +387,7 @@ impl H263State {
                     }
 
                     //Attempt to recover from macroblock errors if possible
-                    Err(ref e) if e.is_macroblock_error() && !self.is_sorenson() => {
+                    Err(ref e) if e.is_macroblock_error() && !is_sorenson => {
                         match decode_gob(reader, self.decoder_options) {
                             //Resynchronized to end of picture.
                             Ok(None) => break,
