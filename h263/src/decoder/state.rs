@@ -497,7 +497,11 @@ mod tests {
     use super::*;
 
     /// A 16x16 Sorenson Spark I-frame of a flat color (one macroblock),
-    /// encoded by FFmpeg.
+    /// encoded by FFmpeg 9.0 with:
+    ///
+    /// `ffmpeg -f lavfi -i color=c=0x3080c0:s=16x16 -frames:v 1 -c:v flv1 -q:v 10 -f rawvideo frame.bin`
+    ///
+    /// It decodes to Y 112, Cb 168, Cr 88 everywhere.
     const SORENSON_FRAME: [u8; 14] = [
         0x00, 0x00, 0x84, 0x00, 0x08, 0x08, 0x15, 0x26, 0xe0, 0xe0, 0xe0, 0xe1, 0x50, 0xb0,
     ];
@@ -513,7 +517,19 @@ mod tests {
             state.decode_next_picture(&mut reader).unwrap_or_else(|e| {
                 panic!("{} trailing bytes: {e:?}", trailing.len());
             });
-            assert!(state.get_last_picture().is_some());
+            let picture = state.get_last_picture().expect("no picture decoded");
+            let (luma, chroma_b, chroma_r) = picture.as_yuv();
+            assert!(luma.iter().all(|&y| y == 112), "luma {:?}", luma);
+            assert!(
+                chroma_b.iter().all(|&cb| cb == 168),
+                "chroma b {:?}",
+                chroma_b
+            );
+            assert!(
+                chroma_r.iter().all(|&cr| cr == 88),
+                "chroma r {:?}",
+                chroma_r
+            );
         }
     }
 }
